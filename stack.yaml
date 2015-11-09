@@ -1,0 +1,17 @@
+resolver: lts-3.12
+
+packages:
+- '.'
+
+extra-deps:
+- Spock-0.9.0.1
+- xml-extractors-0.4.0.1
+
+flags: {}
+
+docker:
+  enable: true
+  stack-exe: "image"
+  repo: "imvu/stack-musl:7.10.2"
+
+
