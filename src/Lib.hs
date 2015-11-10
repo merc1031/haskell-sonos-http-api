@@ -108,14 +108,6 @@ soapAction host action msg = do
 
 getRoom :: [ZonePlayer] -> String -> ZonePlayer
 getRoom zps room =
---    let rooms = M.fromList $ [
---                                 ("kitchen", "192.168.1.161:1400")
---                               , ("living room", "192.168.1.222:1400")
---                               , ("patio", "192.168.1.148:1400")
---                               , ("master bedroom", "192.168.1.236:1400")
---                               , ("bathroom", "192.168.1.240:1400")
---                               , ("media room", "192.168.1.210:1400")
---                             ]
     let rooms = M.fromList $ map (\zp@(ZonePlayer {..}) ->
             let name = zpName
             in (fmap toLower name, zp)
@@ -204,6 +196,9 @@ playLikeR = "like" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
 enqueueLikeR :: WS.Path '[String, String]
 enqueueLikeR = "like" WS.<//> "enqueue" WS.<//> WS.var WS.<//> WS.var
 
+listR :: WS.Path '[]
+listR = "list"
+
 type State = TVar [ZonePlayer]
 
 accessState :: WS.ActionCtxT () (WS.WebStateM () (Maybe a) (TVar [ZonePlayer])) [ZonePlayer]
@@ -229,3 +224,6 @@ routes args = do
             putStrLn $ "Room was: " ++ room
             queueTrackLike rst args room' like
         return ()
+    WS.get listR $ do
+        rst <- accessState
+        WS.json rst

@@ -1,4 +1,11 @@
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Types where
+
+import Data.Aeson ( ToJSON(..)
+                  , object
+                  , (.=)
+                  )
 
 data Location = Location
     { lProto :: String
@@ -25,3 +32,20 @@ data ZonePlayer = ZonePlayer
     , zpName :: String
     } deriving (Show)
 
+instance ToJSON ZonePlayer where
+    toJSON ZonePlayer {..} = object [
+              "group" .= zpGroup
+            , "coordinator" .= zpCoordinator
+            , "location" .= zpLocation
+            , "bootSeq" .= zpBootSeq
+            , "uuid" .= zpUUID
+            , "name" .= zpName
+        ]
+
+instance ToJSON Location where
+    toJSON Location {..} = object [
+              "proto" .= lProto
+            , "url" .= lUrl
+            , "port" .= lPort
+            , "endpoint" .= lEndpoint
+        ]
