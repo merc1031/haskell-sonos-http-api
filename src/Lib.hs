@@ -2,9 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Lib
-    ( someFunc
-    , soap
-    , serve
+    ( serve
     ) where
 
 import Control.Monad.IO.Class
@@ -59,8 +57,16 @@ parseCliArgs =
             )
     in CliArguments <$> directory
 
-someFunc :: CliArguments -> String -> IO [[String]]
-someFunc args like = do
+findMatchingArtistGlob :: CliArguments -> String -> IO [[String]]
+findMatchingArtistGlob args like = do
+    putStrLn $ "What did we hear: " ++ like
+    res <- globDirWith  (matchDefault { ignoreCase = True } ) [(compile $ "**/" ++ like ++ "/**/*.flac")] (dir args)
+    putStrLn $ "Results were" ++ (show $ fst res)
+    return $ fst res
+
+
+findMatchingGlob :: CliArguments -> String -> IO [[String]]
+findMatchingGlob args like = do
     putStrLn $ "What did we hear: " ++ like
     res <- globDirWith  (matchDefault { ignoreCase = True } ) [(compile $ "**/*" ++ like ++ "*.flac")] (dir args)
     putStrLn $ "Results were" ++ (show $ fst res)
@@ -90,14 +96,7 @@ soapAction host action msg = do
     putStrLn $ show $ resp ^? responseStatus
     return $ resp ^? responseBody
 
-soap :: CliArguments -> String -> String -> IO ()
-soap args room like = do
-    putStrLn $ "Room was: " ++ room
-    tracks <- someFunc args like
-    let firstTrack = head $ head tracks
-    putStrLn $ "First track is:" ++ firstTrack
-
-
+getRoom room =
     let rooms = M.fromList $ [
                                  ("kitchen", "192.168.1.161:1400")
                                , ("living room", "192.168.1.222:1400")
@@ -107,32 +106,36 @@ soap args room like = do
                                , ("media room", "192.168.1.210:1400")
                              ]
         Just room' = M.lookup (fmap toLower room) rooms
-        firstTrackE = urlEncode $ replace ".flac" ".mp3" $ replace (dir args) "" $ firstTrack
-        soapMessage = soapTemplate' ("x-file-cifs://asgard/mp3Music/" ++ firstTrackE) "" 0 0
+    in room'
 
-    uuid <- fetchUUID room'
+queueAndPlayTrackLike :: CliArguments -> String -> String -> IO ()
+queueAndPlayTrackLike args host like = do
+    queuedBody <- queueTrackLike args host like
+    let trackNo = getTrackNum queuedBody
 
+    uuid <- fetchUUID host
     let avMessage = setAVTransportURITemplate ("x-rincon-queue:" ++ (T.unpack uuid) ++ "#0") ""
 
-    Just queuedBody <- soapAction room' "AddURIToQueue" soapMessage
-
-    let trackNo = getTrackNum queuedBody
-    soapAction room' "SetAVTransportURI" avMessage
-    soapAction room' "Seek" (seekTrackTemplate trackNo)
-    soapAction room' "Play" playTemplate
+    soapAction host "SetAVTransportURI" avMessage
+    soapAction host "Seek" (seekTrackTemplate trackNo)
+    soapAction host "Play" playTemplate
 
 
     return ()
 
---data UUID = UUID { _uuid :: String } deriving Show
---
---toUUID = E.extractDocContents uuid
---
---uuid = E.element "root" $ E.children $ do
---    _ <- E.element "specVersion" $ E.contents $ E.anyContent
---    E.element "device" $ E.children $ do
---        udn <- E.element "UDN" $ E.contents $ E.text
---        return $ UUID udn
+queueTrackLike :: CliArguments -> String -> String -> IO BSL.ByteString
+queueTrackLike args host like = do
+    tracks <- findMatchingGlob args like
+    let firstTrack = head $ head tracks
+    putStrLn $ "First track is:" ++ firstTrack
+
+
+    let firstTrackE = urlEncode $ replace ".flac" ".mp3" $ replace (dir args) "" $ firstTrack
+        soapMessage = soapTemplate' ("x-file-cifs://asgard/mp3Music/" ++ firstTrackE) "" 0 0
+
+    Just queuedBody <- soapAction host "AddURIToQueue" soapMessage
+    return queuedBody
+
 fetchUUID host = do
     Just body <- getXMLDescription host
     return $ getUUID body
@@ -150,14 +153,29 @@ getTrackNum body =
     let cursor = fromDocument $ parseLBS_ def body
     in read $ T.unpack $ head $ cursor $/ element "{http://schemas.xmlsoap.org/soap/envelope/}Body" &/ element "{urn:schemas-upnp-org:service:AVTransport:1}AddURIToQueueResponse" &/ element "FirstTrackNumberEnqueued" &// content
 
+
 serve = do
     args <- parseArgs
     WS.runSpock 5006 $ WS.spock (WS.defaultSpockCfg Nothing WS.PCNoDatabase Nothing) (routes args)
 
+
+
 playLikeR :: WS.Path '[String, String]
-playLikeR = "like" WS.<//> WS.var WS.<//> WS.var
+playLikeR = "like" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
+
+enqueueLikeR :: WS.Path '[String, String]
+enqueueLikeR = "like" WS.<//> "enqueue" WS.<//> WS.var WS.<//> WS.var
 
 routes args = do
     WS.get playLikeR $ \room like -> do
-        liftIO $ soap args room like
+        let room' = getRoom room
+        liftIO $ do
+            putStrLn $ "Room was: " ++ room
+            queueAndPlayTrackLike args room' like
+        return ()
+    WS.get enqueueLikeR $ \room like -> do
+        let room' = getRoom room
+        liftIO $ do
+            putStrLn $ "Room was: " ++ room
+            queueTrackLike args room' like
         return ()
