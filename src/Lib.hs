@@ -1,6 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TypeFamilies #-}
 module Lib
     ( serve
     ) where
@@ -8,13 +10,23 @@ module Lib
 import Control.Monad.IO.Class
 import System.FilePath.Glob
 import Network.Wreq
-
-import Control.Lens ((^?), (.~), (&))
 import Network.HTTP.Base
 import Data.String.Utils
+import Text.XML
+import Text.XML.Cursor
+import Control.Concurrent.STM
+
+import Types
+import Util
+
+import Control.Concurrent.Async (async)
+import Control.Monad (forever)
+
+import Control.Concurrent (threadDelay)
+
+import Control.Lens ((^?), (.~), (&))
 import Data.Monoid ((<>))
 import Data.Char (toLower)
-
 import Options.Applicative     ( Parser
                                , execParser
                                , argument
@@ -30,15 +42,13 @@ import Options.Applicative     ( Parser
                                , value
                                , strOption
                                )
-
+import Discover (getTopology)
 --import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Char8 as BSC
 import qualified Web.Spock as WS
 import qualified Data.Map.Strict as M
 import qualified Text.XML.Light.Extractors as E
-import Text.XML
-import Text.XML.Cursor
 import qualified Data.Text as T
 
 data CliArguments = CliArguments
@@ -96,35 +106,47 @@ soapAction host action msg = do
     putStrLn $ show $ resp ^? responseStatus
     return $ resp ^? responseBody
 
-getRoom room =
-    let rooms = M.fromList $ [
-                                 ("kitchen", "192.168.1.161:1400")
-                               , ("living room", "192.168.1.222:1400")
-                               , ("patio", "192.168.1.148:1400")
-                               , ("master bedroom", "192.168.1.236:1400")
-                               , ("bathroom", "192.168.1.240:1400")
-                               , ("media room", "192.168.1.210:1400")
-                             ]
+getRoom :: [ZonePlayer] -> String -> ZonePlayer
+getRoom zps room =
+--    let rooms = M.fromList $ [
+--                                 ("kitchen", "192.168.1.161:1400")
+--                               , ("living room", "192.168.1.222:1400")
+--                               , ("patio", "192.168.1.148:1400")
+--                               , ("master bedroom", "192.168.1.236:1400")
+--                               , ("bathroom", "192.168.1.240:1400")
+--                               , ("media room", "192.168.1.210:1400")
+--                             ]
+    let rooms = M.fromList $ map (\zp@(ZonePlayer {..}) ->
+            let name = zpName
+            in (fmap toLower name, zp)
+                                 ) zps
+
+
         Just room' = M.lookup (fmap toLower room) rooms
     in room'
 
-queueAndPlayTrackLike :: CliArguments -> String -> String -> IO ()
-queueAndPlayTrackLike args host like = do
-    queuedBody <- queueTrackLike args host like
+queueAndPlayTrackLike :: [ZonePlayer] -> CliArguments -> ZonePlayer -> String -> IO ()
+queueAndPlayTrackLike zps args host like = do
+    let coord = findCoordinatorIpForIp (zpLocation host) zps
+    queuedBody <- queueTrackLike zps args host like
     let trackNo = getTrackNum queuedBody
+        addr = let l = coord
+               in lUrl l ++ ":" ++ lPort l
 
-    uuid <- fetchUUID host
+    putStrLn $ ("Coord was: " ++ show  coord)
+    uuid <- fetchUUID (addr)
     let avMessage = setAVTransportURITemplate ("x-rincon-queue:" ++ (T.unpack uuid) ++ "#0") ""
 
-    soapAction host "SetAVTransportURI" avMessage
-    soapAction host "Seek" (seekTrackTemplate trackNo)
-    soapAction host "Play" playTemplate
+    soapAction addr "SetAVTransportURI" avMessage
+    soapAction addr "Seek" (seekTrackTemplate trackNo)
+    soapAction addr "Play" playTemplate
 
 
     return ()
 
-queueTrackLike :: CliArguments -> String -> String -> IO BSL.ByteString
-queueTrackLike args host like = do
+queueTrackLike :: [ZonePlayer] -> CliArguments -> ZonePlayer -> String -> IO BSL.ByteString
+queueTrackLike zps args host like = do
+    let coord = findCoordinatorIpForIp (zpLocation host) zps
     tracks <- findMatchingGlob args like
     let firstTrack = head $ head tracks
     putStrLn $ "First track is:" ++ firstTrack
@@ -132,8 +154,11 @@ queueTrackLike args host like = do
 
     let firstTrackE = urlEncode $ replace ".flac" ".mp3" $ replace (dir args) "" $ firstTrack
         soapMessage = soapTemplate' ("x-file-cifs://asgard/mp3Music/" ++ firstTrackE) "" 0 0
+        addr = let l = coord
+               in lUrl l ++ ":" ++ lPort l
 
-    Just queuedBody <- soapAction host "AddURIToQueue" soapMessage
+    putStrLn $ ("Coord was: " ++ show  coord)
+    Just queuedBody <- soapAction addr "AddURIToQueue" soapMessage
     return queuedBody
 
 fetchUUID host = do
@@ -154,11 +179,24 @@ getTrackNum body =
     in read $ T.unpack $ head $ cursor $/ element "{http://schemas.xmlsoap.org/soap/envelope/}Body" &/ element "{urn:schemas-upnp-org:service:AVTransport:1}AddURIToQueueResponse" &/ element "FirstTrackNumberEnqueued" &// content
 
 
+st = do
+    st <- getTopology
+    newTVarIO st
+
 serve = do
     args <- parseArgs
-    WS.runSpock 5006 $ WS.spock (WS.defaultSpockCfg Nothing WS.PCNoDatabase Nothing) (routes args)
+    st' <- liftIO st
+    WS.runSpock 5006 $ WS.spock (WS.defaultSpockCfg Nothing WS.PCNoDatabase st') (routes args)
 
 
+
+stateStuff tv = do
+    let loop = do
+            d <- getTopology
+            threadDelay 10000000
+            atomically $ swapTVar tv d
+            loop
+    async $ forever $ loop
 
 playLikeR :: WS.Path '[String, String]
 playLikeR = "like" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
@@ -166,16 +204,28 @@ playLikeR = "like" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
 enqueueLikeR :: WS.Path '[String, String]
 enqueueLikeR = "like" WS.<//> "enqueue" WS.<//> WS.var WS.<//> WS.var
 
+type State = TVar [ZonePlayer]
+
+accessState :: WS.ActionCtxT () (WS.WebStateM () (Maybe a) (TVar [ZonePlayer])) [ZonePlayer]
+accessState = do
+    st <- WS.getState
+    v <- liftIO $ atomically $ readTVar st
+    return $ v
+
 routes args = do
+    st <- WS.getState
+    liftIO $ stateStuff st
     WS.get playLikeR $ \room like -> do
-        let room' = getRoom room
+        rst <- accessState
+        let room' = getRoom rst room
         liftIO $ do
             putStrLn $ "Room was: " ++ room
-            queueAndPlayTrackLike args room' like
+            queueAndPlayTrackLike rst args room' like
         return ()
     WS.get enqueueLikeR $ \room like -> do
-        let room' = getRoom room
+        rst <- accessState
+        let room' = getRoom rst room
         liftIO $ do
             putStrLn $ "Room was: " ++ room
-            queueTrackLike args room' like
+            queueTrackLike rst args room' like
         return ()

@@ -17,7 +17,10 @@ library
   hs-source-dirs:      src
   exposed-modules:       Lib
                        , Discover
+                       , Util
+                       , Types
   build-depends:         base >= 4.7 && < 5
+                       , parsec
                        , wreq
                        , Glob
                        , lens
