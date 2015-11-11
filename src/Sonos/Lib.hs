@@ -12,6 +12,7 @@ import Text.XML
 import Text.XML.Cursor
 import Control.Concurrent.STM
 
+import Data.String (fromString)
 import Sonos.Types
 import Sonos.Util (findCoordinatorForIp)
 
@@ -31,7 +32,9 @@ import qualified Data.Map.Strict as M
 import qualified Text.XML.Light.Extractors as E
 import qualified Data.Text as T
 
-findMatchingArtistGlob :: CliArguments -> String -> IO [[String]]
+findMatchingArtistGlob :: CliArguments
+                       -> String
+                       -> IO [[String]]
 findMatchingArtistGlob args like = do
     putStrLn $ "What did we hear: " ++ like
     res <- globDirWith  (matchDefault { ignoreCase = True } ) [(compile $ "**/" ++ like ++ "/**/*.flac")] (dir args)
@@ -39,7 +42,9 @@ findMatchingArtistGlob args like = do
     return $ fst res
 
 
-findMatchingGlob :: CliArguments -> String -> IO [[String]]
+findMatchingGlob :: CliArguments
+                 -> String
+                 -> IO [[String]]
 findMatchingGlob args like = do
     putStrLn $ "What did we hear: " ++ like
     res <- globDirWith  (matchDefault { ignoreCase = True } ) [(compile $ "**/*" ++ like ++ "*.flac")] (dir args)
@@ -88,7 +93,9 @@ soapAction host action msg = do
     print $ resp ^? responseStatus
     return $ resp ^? responseBody
 
-getRoom :: [ZonePlayer] -> String -> ZonePlayer
+getRoom :: [ZonePlayer]
+        -> String
+        -> ZonePlayer
 getRoom zps room =
     let rooms = M.fromList $ map (\zp@(ZonePlayer {..}) ->
             let name = zpName
@@ -99,7 +106,11 @@ getRoom zps room =
         Just room' = M.lookup (fmap toLower room) rooms
     in room'
 
-queueAndPlayTrackLike :: [ZonePlayer] -> CliArguments -> ZonePlayer -> String -> IO ()
+queueAndPlayTrackLike :: [ZonePlayer]
+                      -> CliArguments
+                      -> ZonePlayer
+                      -> String
+                      -> IO ()
 queueAndPlayTrackLike zps args host like = do
     let coord = findCoordinatorForIp (zpLocation host) zps
     queuedBody <- queueTrackLike zps args host like
@@ -118,7 +129,11 @@ queueAndPlayTrackLike zps args host like = do
 
     return ()
 
-queueTrackLike :: [ZonePlayer] -> CliArguments -> ZonePlayer -> String -> IO BSL.ByteString
+queueTrackLike :: [ZonePlayer]
+               -> CliArguments
+               -> ZonePlayer
+               -> String
+               -> IO BSL.ByteString
 queueTrackLike zps args host like = do
     let coord = findCoordinatorForIp (zpLocation host) zps
     tracks <- findMatchingGlob args like
@@ -145,10 +160,17 @@ getXMLDescription host = do
 
 getUUID body =
     let cursor = fromDocument $ parseLBS_ def body
-    in T.drop 5 $ head $ cursor $/ element "{urn:schemas-upnp-org:device-1-0}device" &/ element "{urn:schemas-upnp-org:device-1-0}UDN" &// content
+        ns = "{urn:schemas-upnp-org:device-1-0}"
+    in T.drop 5 $ head $ cursor $/ element (fromString $ ns ++ "device")
+                                &/ element (fromString $ ns ++ "UDN")
+                                &// content
 
-getTrackNum :: BSL.ByteString -> Int
+getTrackNum :: BSL.ByteString
+            -> Int
 getTrackNum body =
     let cursor = fromDocument $ parseLBS_ def body
-    in read $ T.unpack $ head $ cursor $/ element "{http://schemas.xmlsoap.org/soap/envelope/}Body" &/ element "{urn:schemas-upnp-org:service:AVTransport:1}AddURIToQueueResponse" &/ element "FirstTrackNumberEnqueued" &// content
+    in read $ T.unpack $ head $ cursor $/ element "{http://schemas.xmlsoap.org/soap/envelope/}Body"
+                                       &/ element "{urn:schemas-upnp-org:service:AVTransport:1}AddURIToQueueResponse"
+                                       &/ element "FirstTrackNumberEnqueued"
+                                       &// content
 

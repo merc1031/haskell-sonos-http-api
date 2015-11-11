@@ -8,10 +8,14 @@ import Sonos.Types
 import qualified Data.Map.Strict as M
 
 
-findCoordinatorIpForIp :: Location -> [ZonePlayer] -> Location
+findCoordinatorIpForIp :: Location
+                       -> [ZonePlayer]
+                       -> Location
 findCoordinatorIpForIp loc sds = zpLocation $ findCoordinatorForIp loc sds
 
-findCoordinatorForIp :: Location -> [ZonePlayer] -> ZonePlayer
+findCoordinatorForIp :: Location
+                     -> [ZonePlayer]
+                     -> ZonePlayer
 findCoordinatorForIp loc sds =
     let (Location _ u _ _) = loc
         m = M.fromList $ map (\zp@(ZonePlayer {..}) ->

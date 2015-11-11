@@ -34,6 +34,7 @@ enqueueLikeR = "like" WS.<//> "enqueue" WS.<//> WS.var WS.<//> WS.var
 
 listR :: WS.Path '[]
 listR = "list"
+
 accessState :: WS.ActionCtxT () (WS.WebStateM () (Maybe a) (TVar [ZonePlayer])) [ZonePlayer]
 accessState = do
     st <- WS.getState
