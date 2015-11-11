@@ -51,28 +51,41 @@ envelopePostamble = "</s:Body><s:Envelope>"
 
 envelope cmd = envelopePreamble ++ cmd ++ envelopePostamble
 
-addURIToQueueTemplate uri meta first next = "<u:AddURIToQueue xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID><EnqueuedURI>" ++ uri ++ "</EnqueuedURI><EnqueuedURIMetaData>" ++ meta ++ "</EnqueuedURIMetaData><DesiredFirstTrackNumberEnqueued>" ++ show first ++ "</DesiredFirstTrackNumberEnqueued><EnqueueAsNext>" ++ show next ++ "</EnqueueAsNext></u:AddURIToQueue>"
+avTransportAction = "urn:schemas-upnp-org:service:AVTransport:1"
+avTransportNS = "xmlns:u=\"" ++ avTransportAction ++ "\""
 
-playTemplate = "<u:Play xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID><Speed>1</Speed></u:Play>"
+addURIToQueueTemplate uri meta first next =
+    let addUri cts = "<u:AddURIToQueue " ++ avTransportNS ++ "><InstanceID>0</InstanceID>" ++ cts ++ "</u:AddURIToQueue>"
+        enqueuedURI = "<EnqueuedURI>" ++ uri ++ "</EnqueuedURI>"
+        enqueuedURIMetadata = "<EnqueuedURIMetaData>" ++ meta ++ "</EnqueuedURIMetaData>"
+        desiredFTN = "<DesiredFirstTrackNumberEnqueued>" ++ show first ++ "</DesiredFirstTrackNumberEnqueued>"
+        enqueueAsNext = "<EnqueueAsNext>" ++ show next ++ "</EnqueueAsNext>"
+    in addUri (enqueuedURI ++ enqueuedURIMetadata ++ desiredFTN ++ enqueueAsNext)
 
-setAVTransportURITemplate uri meta = "<u:SetAVTransportURI xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID><CurrentURI>" ++ uri ++ "</CurrentURI><CurrentURIMetaData>" ++ meta ++ "</CurrentURIMetaData></u:SetAVTransportURI>"
+playTemplate = "<u:Play " ++ avTransportNS ++ "><InstanceID>0</InstanceID><Speed>1</Speed></u:Play>"
 
-seekTrackTemplate track = "<u:Seek xmlns:u=\"urn:schemas-upnp-org:service:AVTransport:1\"><InstanceID>0</InstanceID><Unit>TRACK_NR</Unit><Target>" ++ show track ++ "</Target></u:Seek>"
+setAVTransportURITemplate uri meta =
+    let avTransport cts = "<u:SetAVTransportURI " ++ avTransportNS ++ "><InstanceID>0</InstanceID>" ++ cts ++ "</u:SetAVTransportURI>"
+        currentURI = "<CurrentURI>" ++ uri ++ "</CurrentURI>"
+        currentURIMetadata = "<CurrentURIMetaData>" ++ meta ++ "</CurrentURIMetaData>"
+    in avTransport (currentURI ++ currentURIMetadata)
+
+seekTrackTemplate track = "<u:Seek " ++ avTransportNS ++ "><InstanceID>0</InstanceID><Unit>TRACK_NR</Unit><Target>" ++ show track ++ "</Target></u:Seek>"
 
 soapAction host action msg = do
     let opts = defaults & header "Host" .~ [BSC.pack host]
                         & header "User-Agent" .~ ["Haskell post"]
                         & header "Content-type" .~ ["text/xml; charset=\"UTF-8\""]
                         & header "Content-length" .~ [BSC.pack $ show $ length msg]
-                        & header "SOAPAction" .~ [BSC.pack $ "urn:schemas-upnp-org:service:AVTransport:1#" ++ action]
+                        & header "SOAPAction" .~ [BSC.pack $ avTransportAction ++ "#" ++ action]
         ep = "/MediaRenderer/AVTransport/Control"
 
-    putStrLn $ show opts
-    putStrLn $ show msg
+    print opts
+    print msg
     resp <- postWith opts ("http://" ++ host ++ ep) (BSC.pack $ envelope msg)
 
-    putStrLn $ show $ resp ^? responseBody
-    putStrLn $ show $ resp ^? responseStatus
+    print $ resp ^? responseBody
+    print $ resp ^? responseStatus
     return $ resp ^? responseBody
 
 getRoom :: [ZonePlayer] -> String -> ZonePlayer
