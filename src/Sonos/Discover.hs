@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE LambdaCase #-}
-module Discover where
+module Sonos.Discover where
 
 import Network.Socket
 import Network.Multicast
@@ -18,7 +18,7 @@ import Debug.Trace
 import Text.XML
 import Text.XML.Cursor
 
-import Types
+import Sonos.Types
 
 import Control.Lens ((^?), (.~), (&))
 

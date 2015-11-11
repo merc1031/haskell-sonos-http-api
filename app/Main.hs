@@ -1,6 +1,6 @@
 module Main where
 
-import Lib
+import qualified Sonos.Main as M
 
 main :: IO ()
-main = serve --soap "kitchen" "have ghost"
+main = M.main

@@ -1,11 +1,19 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Types where
+{-# LANGUAGE BangPatterns #-}
+module Sonos.Types where
 
 import Data.Aeson ( ToJSON(..)
                   , object
                   , (.=)
                   )
+import Control.Concurrent.STM
+
+type State = TVar [ZonePlayer]
+
+data CliArguments = CliArguments
+    { dir :: !String
+    }
 
 data Location = Location
     { lProto :: String

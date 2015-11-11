@@ -1,15 +1,18 @@
 {-# LANGUAGE RecordWildCards #-}
-module Util where
+module Sonos.Util where
 
-import Discover
+import Sonos.Discover
 
-import Types
+import Sonos.Types
 
 import qualified Data.Map.Strict as M
 
 
 findCoordinatorIpForIp :: Location -> [ZonePlayer] -> Location
-findCoordinatorIpForIp loc sds =
+findCoordinatorIpForIp loc sds = zpLocation $ findCoordinatorForIp loc sds
+
+findCoordinatorForIp :: Location -> [ZonePlayer] -> ZonePlayer
+findCoordinatorForIp loc sds =
     let (Location _ u _ _) = loc
         m = M.fromList $ map (\zp@(ZonePlayer {..}) ->
                                     let Location {..} = zpLocation
@@ -23,5 +26,5 @@ findCoordinatorIpForIp loc sds =
                         in groupMatch && coord
                      ) m
         me = head $ M.elems c
-    in zpLocation me
+    in me
 

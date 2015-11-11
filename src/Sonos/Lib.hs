@@ -1,13 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
-module Lib
-    ( serve
-    ) where
+module Sonos.Lib where
 
-import Control.Monad.IO.Class
 import System.FilePath.Glob
 import Network.Wreq
 import Network.HTTP.Base
@@ -16,10 +12,9 @@ import Text.XML
 import Text.XML.Cursor
 import Control.Concurrent.STM
 
-import Types
-import Util
+import Sonos.Types
+import Sonos.Util (findCoordinatorForIp)
 
-import Control.Concurrent.Async (async)
 import Control.Monad (forever)
 
 import Control.Concurrent (threadDelay)
@@ -27,22 +22,7 @@ import Control.Concurrent (threadDelay)
 import Control.Lens ((^?), (.~), (&))
 import Data.Monoid ((<>))
 import Data.Char (toLower)
-import Options.Applicative     ( Parser
-                               , execParser
-                               , argument
-                               , info
-                               , helper
-                               , fullDesc
-                               , help
-                               , switch
-                               , metavar
-                               , str
-                               , long
-                               , short
-                               , value
-                               , strOption
-                               )
-import Discover (getTopology)
+import Sonos.Discover (getTopology)
 --import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Char8 as BSC
@@ -50,22 +30,6 @@ import qualified Web.Spock as WS
 import qualified Data.Map.Strict as M
 import qualified Text.XML.Light.Extractors as E
 import qualified Data.Text as T
-
-data CliArguments = CliArguments
-    { dir :: !String
-    }
-
-parseArgs :: IO CliArguments
-parseArgs = execParser $ info (helper <*> parseCliArgs) fullDesc
-
-parseCliArgs :: Parser CliArguments
-parseCliArgs =
-    let directory = strOption
-            ( long "directory"
-            <> short 'd'
-            <> help "Directory to search in"
-            )
-    in CliArguments <$> directory
 
 findMatchingArtistGlob :: CliArguments -> String -> IO [[String]]
 findMatchingArtistGlob args like = do
@@ -119,10 +83,10 @@ getRoom zps room =
 
 queueAndPlayTrackLike :: [ZonePlayer] -> CliArguments -> ZonePlayer -> String -> IO ()
 queueAndPlayTrackLike zps args host like = do
-    let coord = findCoordinatorIpForIp (zpLocation host) zps
+    let coord = findCoordinatorForIp (zpLocation host) zps
     queuedBody <- queueTrackLike zps args host like
     let trackNo = getTrackNum queuedBody
-        addr = let l = coord
+        addr = let l = zpLocation coord
                in lUrl l ++ ":" ++ lPort l
 
     putStrLn $ ("Coord was: " ++ show  coord)
@@ -138,7 +102,7 @@ queueAndPlayTrackLike zps args host like = do
 
 queueTrackLike :: [ZonePlayer] -> CliArguments -> ZonePlayer -> String -> IO BSL.ByteString
 queueTrackLike zps args host like = do
-    let coord = findCoordinatorIpForIp (zpLocation host) zps
+    let coord = findCoordinatorForIp (zpLocation host) zps
     tracks <- findMatchingGlob args like
     let firstTrack = head $ head tracks
     putStrLn $ "First track is:" ++ firstTrack
@@ -146,7 +110,7 @@ queueTrackLike zps args host like = do
 
     let firstTrackE = urlEncode $ replace ".flac" ".mp3" $ replace (dir args) "" $ firstTrack
         soapMessage = soapTemplate' ("x-file-cifs://asgard/mp3Music/" ++ firstTrackE) "" 0 0
-        addr = let l = coord
+        addr = let l = zpLocation coord
                in lUrl l ++ ":" ++ lPort l
 
     putStrLn $ ("Coord was: " ++ show  coord)
@@ -170,60 +134,3 @@ getTrackNum body =
     let cursor = fromDocument $ parseLBS_ def body
     in read $ T.unpack $ head $ cursor $/ element "{http://schemas.xmlsoap.org/soap/envelope/}Body" &/ element "{urn:schemas-upnp-org:service:AVTransport:1}AddURIToQueueResponse" &/ element "FirstTrackNumberEnqueued" &// content
 
-
-st = do
-    st <- getTopology
-    newTVarIO st
-
-serve = do
-    args <- parseArgs
-    st' <- liftIO st
-    WS.runSpock 5006 $ WS.spock (WS.defaultSpockCfg Nothing WS.PCNoDatabase st') (routes args)
-
-
-
-stateStuff tv = do
-    let loop = do
-            d <- getTopology
-            threadDelay 10000000
-            atomically $ swapTVar tv d
-            loop
-    async $ forever $ loop
-
-playLikeR :: WS.Path '[String, String]
-playLikeR = "like" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
-
-enqueueLikeR :: WS.Path '[String, String]
-enqueueLikeR = "like" WS.<//> "enqueue" WS.<//> WS.var WS.<//> WS.var
-
-listR :: WS.Path '[]
-listR = "list"
-
-type State = TVar [ZonePlayer]
-
-accessState :: WS.ActionCtxT () (WS.WebStateM () (Maybe a) (TVar [ZonePlayer])) [ZonePlayer]
-accessState = do
-    st <- WS.getState
-    v <- liftIO $ atomically $ readTVar st
-    return $ v
-
-routes args = do
-    st <- WS.getState
-    liftIO $ stateStuff st
-    WS.get playLikeR $ \room like -> do
-        rst <- accessState
-        let room' = getRoom rst room
-        liftIO $ do
-            putStrLn $ "Room was: " ++ room
-            queueAndPlayTrackLike rst args room' like
-        return ()
-    WS.get enqueueLikeR $ \room like -> do
-        rst <- accessState
-        let room' = getRoom rst room
-        liftIO $ do
-            putStrLn $ "Room was: " ++ room
-            queueTrackLike rst args room' like
-        return ()
-    WS.get listR $ do
-        rst <- accessState
-        WS.json rst
