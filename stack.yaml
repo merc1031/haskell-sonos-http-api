@@ -6,12 +6,13 @@ packages:
 extra-deps:
 - Spock-0.9.0.1
 - xml-extractors-0.4.0.1
+- idiii-0.1.3.3
 
 flags: {}
 
 docker:
   enable: true
   stack-exe: "image"
-  repo: "imvu/stack-musl:7.10.2"
+  repo: "merc1031/stack-musl:7.10.2"
 
 
