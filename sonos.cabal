@@ -47,6 +47,7 @@ library
                        , aeson
                        , idiii
                        , sqlite-simple
+                       , xml-types
   default-language:    Haskell2010
 
 executable sonos-exe
