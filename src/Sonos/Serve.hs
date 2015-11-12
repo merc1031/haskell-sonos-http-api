@@ -41,6 +41,9 @@ joinR = "join" WS.<//> WS.var WS.<//> WS.var
 unjoinR :: WS.Path '[String]
 unjoinR = "unjoin" WS.<//> WS.var
 
+eventSubR :: WS.Path '[]
+eventSubR = "eventSub"
+
 accessState :: WS.ActionCtxT () (WS.WebStateM () (Maybe a) (TVar [ZonePlayer])) [ZonePlayer]
 accessState = do
     st <- WS.getState
@@ -80,6 +83,11 @@ routes args = do
             putStrLn $ "RoomA was: " ++ room
             ungroupRoom rst args room'
         return ()
+    WS.get eventSubR $ do
+        liftIO $ print "In event sub"
+        b <- WS.body
+        liftIO $ print b
+        return () --WS.raw $ print data
     WS.get listR $ do
         rst <- accessState
         WS.json rst

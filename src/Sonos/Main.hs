@@ -22,6 +22,7 @@ import Data.Monoid ((<>))
 import Sonos.Discover (getTopology)
 import Sonos.Serve (serve)
 import Sonos.Types (CliArguments(..))
+import Sonos.Events (sub)
 
 parseArgs :: IO CliArguments
 parseArgs = execParser $ info (helper <*> parseCliArgs) fullDesc
@@ -54,4 +55,6 @@ main = do
     args <- parseArgs
     st' <- st
     setupDB
+    stI <- atomically $ readTVar st'
+    sub (head stI) "192.168.1.137" 5006
     serve st' args
