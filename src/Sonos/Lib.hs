@@ -75,6 +75,12 @@ setAVTransportURITemplate uri meta =
         currentURIMetadata = "<CurrentURIMetaData>" ++ meta ++ "</CurrentURIMetaData>"
     in avTransport (currentURI ++ currentURIMetadata)
 
+becomeCoordinatorOfStandaloneGroup md =
+    let avTransport cts = "<u:BecomeCoordinatorOfStandaloneGroup " ++ avTransportNS ++ ">" ++ cts ++ "</u:BecomeCoordinatorOfStandaloneGroup>"
+        md' = foldl1 (++) $ map mk md
+        mk (w, i) = "<" ++ w ++ ">" ++ i ++ "</" ++ w ++ ">"
+    in avTransport (md')
+
 seekTrackTemplate track = "<u:Seek " ++ avTransportNS ++ "><InstanceID>0</InstanceID><Unit>TRACK_NR</Unit><Target>" ++ show track ++ "</Target></u:Seek>"
 
 soapAction host action msg = do
@@ -105,6 +111,32 @@ getRoom zps room =
 
         Just room' = M.lookup (fmap toLower room) rooms
     in room'
+
+groupRoom :: [ZonePlayer]
+          -> CliArguments
+          -> ZonePlayer
+          -> ZonePlayer
+          -> IO ()
+groupRoom zps args a b = do
+    let coordA = findCoordinatorForIp (zpLocation a) zps
+        coordB = findCoordinatorForIp (zpLocation b) zps
+        addr = let l = zpLocation coordA
+               in lUrl l ++ ":" ++ lPort l
+    let avMessage = setAVTransportURITemplate ("x-rincon:"  ++ (zpUUID coordB)) ""
+    soapAction addr "SetAVTransportURI" avMessage
+    return ()
+
+ungroupRoom :: [ZonePlayer]
+          -> CliArguments
+          -> ZonePlayer
+          -> IO ()
+ungroupRoom zps args room = do
+    let addr = let l = zpLocation room
+               in lUrl l ++ ":" ++ lPort l
+    let avMessage = becomeCoordinatorOfStandaloneGroup [("InstanceID", show 0)]
+    soapAction addr "BecomeCoordinatorOfStandaloneGroup" avMessage
+    return ()
+
 
 queueAndPlayTrackLike :: [ZonePlayer]
                       -> CliArguments

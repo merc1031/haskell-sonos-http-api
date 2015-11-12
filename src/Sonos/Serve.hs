@@ -35,6 +35,12 @@ enqueueLikeR = "like" WS.<//> "enqueue" WS.<//> WS.var WS.<//> WS.var
 listR :: WS.Path '[]
 listR = "list"
 
+joinR :: WS.Path '[String, String]
+joinR = "join" WS.<//> WS.var WS.<//> WS.var
+
+unjoinR :: WS.Path '[String]
+unjoinR = "unjoin" WS.<//> WS.var
+
 accessState :: WS.ActionCtxT () (WS.WebStateM () (Maybe a) (TVar [ZonePlayer])) [ZonePlayer]
 accessState = do
     st <- WS.getState
@@ -57,6 +63,22 @@ routes args = do
         liftIO $ do
             putStrLn $ "Room was: " ++ room
             queueTrackLike rst args room' like
+        return ()
+    WS.get joinR $ \a b -> do
+        rst <- accessState
+        let roomA = getRoom rst a
+        let roomB = getRoom rst b
+        liftIO $ do
+            putStrLn $ "RoomA was: " ++ a
+            putStrLn $ "RoomB was: " ++ b
+            groupRoom rst args roomA roomB
+        return ()
+    WS.get unjoinR $ \room -> do
+        rst <- accessState
+        let room' = getRoom rst room
+        liftIO $ do
+            putStrLn $ "RoomA was: " ++ room
+            ungroupRoom rst args room'
         return ()
     WS.get listR $ do
         rst <- accessState
