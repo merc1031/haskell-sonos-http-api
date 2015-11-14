@@ -83,7 +83,7 @@ routes args = do
             putStrLn $ "RoomA was: " ++ room
             ungroupRoom rst args room'
         return ()
-    WS.get eventSubR $ do
+    WS.hookRouteCustom "NOTIFY" eventSubR $ do
         liftIO $ print "In event sub"
         b <- WS.body
         liftIO $ print b

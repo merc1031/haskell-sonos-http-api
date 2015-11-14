@@ -2,9 +2,11 @@ resolver: lts-3.12
 
 packages:
 - '.'
+- location:
+    git: https://github.com/merc1031/Spock.git
+    commit: a9f1428d89827644bf174d949114d87b32d5515c
 
 extra-deps:
-- Spock-0.9.0.1
 - xml-extractors-0.4.0.1
 - idiii-0.1.3.3
 

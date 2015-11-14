@@ -48,8 +48,8 @@ setupDB = do
 
 
 st = do
-    st <- getTopology
-    newTVarIO st
+    topo <- getTopology
+    newTVarIO topo
 
 main = do
     args <- parseArgs
