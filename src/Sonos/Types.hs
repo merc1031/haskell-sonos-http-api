@@ -29,6 +29,7 @@ data SonosDiscovery = SonosDiscovery
     , sdUSN :: String
     , sdHousehold :: String
     , sdBootSeq :: String
+    , sdWifiMode :: String
     } deriving Show
 
 data ZonePlayer = ZonePlayer 

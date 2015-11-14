@@ -41,7 +41,9 @@ discover = withSocketsDo $ do
            sendTo sock msg' addr
            (msg, _, addr1) <- recvFrom sock 1024
            if L.isInfixOf "Sonos" msg
-               then return $ parse it "" msg
+               then do
+                   print msg
+                   return $ parse it "" msg
                else loop
     loop
 
@@ -65,8 +67,10 @@ it = do
     crlf
     boot <- bootP <?> "boot failed"
     crlf
+    wifi <- wifiP <?> "wifi mode failed"
     crlf
-    return $ SonosDiscovery location server st usn household boot
+    crlf
+    return $ SonosDiscovery location server st usn household boot wifi
 
 httpRespP :: Parser ()
 httpRespP = do
@@ -144,6 +148,13 @@ bootP = do
     seq <- many digit
     return seq
 
+wifiP :: Parser String
+wifiP = do
+    string "X-RINCON-WIFIMODE:"
+    space
+    seq <- many digit
+    return seq
+
 
 getTopology = do
     first <- discover
@@ -155,6 +166,7 @@ getTopology = do
             r <- get (lProto ++ lUrl ++ ":" ++ lPort ++ "/status/topology")
             let Just body = r ^? responseBody
             let zps = map toZP (toZonePlayer body)
+            print zps
             return zps
 
 
