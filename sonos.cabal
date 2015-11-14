@@ -50,6 +50,8 @@ library
                        , sqlite-simple
                        , xml-types
                        , network-info
+                       , wai-extra
+                       , data-default
   default-language:    Haskell2010
 
 executable sonos-exe

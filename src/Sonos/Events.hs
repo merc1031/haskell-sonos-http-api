@@ -9,7 +9,7 @@ import qualified Data.ByteString.Char8   as BSC
 
 --getLocalAddr = ipv4 . getNetworkInterfaces
 
-sub ::  ZonePlayer
+sub :: ZonePlayer
     -> String
     -> Int
     -> IO ()

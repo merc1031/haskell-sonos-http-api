@@ -16,6 +16,7 @@ import Control.Concurrent.STM
 
 import Sonos.Types
 
+import Data.Maybe                           (fromJust)
 import Data.String                          (fromString, IsString)
 import Sonos.Util                           (findCoordinatorForIp)
 import Control.Monad                        (forever)
@@ -39,7 +40,7 @@ findMatchingArtistGlob :: CliArguments
 findMatchingArtistGlob args like = do
     putStrLn $ "What did we hear: " ++ like
     res <- globDirWith (matchDefault { ignoreCase = True } )
-           [compile $ "**/" ++ like ++ "/**/*.flac"]
+           [compile $ like ++ "/**/*.flac"]
            (dir args)
     putStrLn $ "Results were" ++ show (fst res)
     return $ fst res
@@ -278,6 +279,55 @@ queueTrackLike zps args host like = do
     putStrLn ("Coord was: " ++ show coord)
     Just queuedBody <- soapAction addr "AddURIToQueue" soapMessage
     return queuedBody
+
+queueAndPlayArtistLike :: [ZonePlayer]
+                      -> CliArguments
+                      -> ZonePlayer
+                      -> String
+                      -> IO ()
+queueAndPlayArtistLike zps args host like = do
+    let coord = findCoordinatorForIp (zpLocation host) zps
+    queuedBodys <- queueArtistLike zps args host like
+    let trackNo = getTrackNum $ fromJust $ head $ queuedBodys
+        addr = let l = zpLocation coord
+               in lUrl l ++ ":" ++ lPort l
+
+    putStrLn ("Coord was: " ++ show  coord)
+    uuid <- fetchUUID addr
+    let avMessage = setAVTransportURITemplate_ ("x-rincon-queue:" ++ T.unpack uuid ++ "#0") ""
+
+    soapAction addr "SetAVTransportURI" avMessage
+    soapAction addr "Seek" (seekTrackTemplate_ trackNo)
+    soapAction addr "Play" playTemplate_
+
+
+    return ()
+
+queueArtistLike :: [ZonePlayer]
+               -> CliArguments
+               -> ZonePlayer
+               -> String
+               -> IO [Maybe BSL.ByteString]
+queueArtistLike zps args host like = do
+    let coord = findCoordinatorForIp (zpLocation host) zps
+    tracks <- findMatchingArtistGlob args like
+    let tracks' = head tracks
+    putStrLn $ "Tracks are:" ++ show tracks'
+
+
+    let firstTrackE track = urlEncode
+                    $ replace ".flac" ".mp3"
+                    $ replace (dir args) "" track
+        soapMessage track = addURIToQueueTemplate_ ("x-file-cifs://asgard/mp3Music/" ++ firstTrackE track)
+                                                   ""
+                                                   0
+                                                   0
+        addr = let l = zpLocation coord
+               in lUrl l ++ ":" ++ lPort l
+
+    putStrLn ("Coord was: " ++ show coord)
+    queuedBodys <- mapM (\t -> soapAction addr "AddURIToQueue" (soapMessage t)) tracks'
+    return queuedBodys
 
 fetchUUID :: String
           -> IO T.Text
