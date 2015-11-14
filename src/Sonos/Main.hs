@@ -2,6 +2,8 @@
 module Sonos.Main where
 
 import Control.Concurrent.STM
+import Control.Concurrent.Async
+import Control.Concurrent (threadDelay)
 import           Database.SQLite.Simple
 import Options.Applicative     ( Parser
                                , execParser
@@ -56,5 +58,12 @@ main = do
     st' <- st
     setupDB
     stI <- atomically $ readTVar st'
-    sub (head stI) "192.168.1.137" 5006
+    let s' = do
+            _ <- async $ do
+                sub (head stI) "192.168.1.137" 5006
+                threadDelay 85000000
+                s'
+            return ()
+    s'
+
     serve st' args

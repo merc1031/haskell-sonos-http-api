@@ -14,6 +14,7 @@ sub :: ZonePlayer
     -> Int
     -> IO ()
 sub zp me port = do
+    print $ "Subscribing to " ++ show zp
     let loc = zpLocation zp
         addr = lUrl loc ++ ":" ++ lPort loc
 

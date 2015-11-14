@@ -359,3 +359,7 @@ getTrackNum body =
                                        &/ element "FirstTrackNumberEnqueued"
                                        &// content
 
+
+xmlEvent body =
+    let cursor = fromDocument $ parseLBS_ def body
+    in cursor

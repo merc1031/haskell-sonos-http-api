@@ -13,6 +13,7 @@ import Control.Concurrent.Async (async)
 import qualified Web.Spock as WS
 import Network.Wai.Middleware.RequestLogger
 import Data.Default
+import qualified Data.ByteString.Lazy as BSL
 
 
 serve st' args = do
@@ -113,7 +114,7 @@ routes args = do
             ungroupRoom rst args room'
         return ()
     WS.hookRouteCustom "NOTIFY" eventSub1R $ \x -> do
-        liftIO $ print "In event sub"
+        liftIO $ print "In event sub 1"
         b <- WS.body
         liftIO $ print b
         liftIO $ print x
@@ -121,7 +122,7 @@ routes args = do
     WS.hookRouteCustom "NOTIFY" eventSubR $ do
         liftIO $ print "In event sub"
         b <- WS.body
-        liftIO $ print b
+        liftIO $ print $ xmlEvent $ BSL.fromStrict b
         return () --WS.raw $ print data
     WS.get listR $ do
         rst <- accessState
