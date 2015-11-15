@@ -60,9 +60,8 @@ main = do
     stI <- atomically $ readTVar st'
     let s' = do
             _ <- async $ do
-                sub (head stI) "192.168.1.137" 5006
-                threadDelay 85000000
-                s'
+                print "Async subscribe"
+                mapM_ (\s -> sub s "192.168.1.137" 5006) stI
             return ()
     s'
 
