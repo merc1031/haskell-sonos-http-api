@@ -6,7 +6,6 @@ import Control.Monad.IO.Class
 import Sonos.Lib
 import Sonos.Types
 import Sonos.Discover (getTopology)
-import Control.Monad (forever)
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM
 import Control.Concurrent.Async (async)
@@ -21,13 +20,6 @@ serve st' args = do
 
 
 
-stateStuff tv = do
-    let loop = do
-            d <- getTopology
-            threadDelay 10000000
-            atomically $ swapTVar tv d
-            loop
-    async $ forever $ loop
 
 playLikeR :: WS.Path '[String, String]
 playLikeR = "like" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
@@ -65,7 +57,6 @@ accessState = do
 
 routes args = do
     st <- WS.getState
-    liftIO $ stateStuff st
 
     reqLogger <- liftIO $ mkRequestLogger def
     WS.middleware $ reqLogger

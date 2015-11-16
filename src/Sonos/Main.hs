@@ -4,6 +4,7 @@ module Sonos.Main where
 import Control.Concurrent.STM
 import Control.Concurrent.Async
 import Control.Concurrent (threadDelay)
+import Control.Monad (forever)
 import           Database.SQLite.Simple
 import Options.Applicative     ( Parser
                                , execParser
@@ -48,6 +49,12 @@ setupDB = do
     execute_ conn "CREATE INDEX IF NOT EXISTS path_idx ON album (path)"
     close conn
 
+stateStuff tv = do
+    let loop = do
+            d <- getTopology
+            threadDelay 10000000
+            atomically $ swapTVar tv d
+    async $ forever $ loop
 
 st = do
     topo <- getTopology
@@ -58,6 +65,7 @@ main = do
     st' <- st
     setupDB
     stI <- atomically $ readTVar st'
+    stateStuff st'
     let s' = do
             _ <- async $ do
                 print "Async subscribe"
