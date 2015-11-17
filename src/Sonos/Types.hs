@@ -8,20 +8,22 @@ import Data.Aeson ( ToJSON(..)
                   , (.=)
                   )
 import Control.Concurrent.STM
+import qualified Data.Text as T
+import qualified Formatting as Format
 
 type State = TVar [ZonePlayer]
 
 data CliArguments = CliArguments
     { dir :: !String
-    , email :: !String
-    , password :: !String
+    , email :: !T.Text
+    , password :: !T.Text
     }
 
 data Location = Location
-    { lProto :: String
-    , lUrl :: String
-    , lPort :: String
-    , lEndpoint :: String
+    { lProto :: T.Text
+    , lUrl :: T.Text
+    , lPort :: T.Text
+    , lEndpoint :: T.Text
     } deriving Show
 
 data SonosDiscovery = SonosDiscovery
@@ -39,7 +41,7 @@ data ZonePlayer = ZonePlayer
     , zpCoordinator :: Bool
     , zpLocation :: Location
     , zpBootSeq :: String
-    , zpUUID :: String
+    , zpUUID :: T.Text
     , zpName :: String
     } deriving (Show)
 
@@ -60,3 +62,14 @@ instance ToJSON Location where
             , "port" .= lPort
             , "endpoint" .= lEndpoint
         ]
+
+fmtLocation (Location{..}) protoO endpoint =
+    Format.sformat (Format.stext Format.%
+                    Format.stext Format.%
+                    ":" Format.% Format.stext Format.%
+                    Format.stext
+                   )
+                   protoO
+                   lUrl
+                   lPort
+                   endpoint

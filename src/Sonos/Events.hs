@@ -13,6 +13,7 @@ import Data.Char (toLower)
 import Data.List
 import Control.Concurrent.Async
 import Control.Concurrent (threadDelay)
+import qualified Data.Text as T
 
 --getLocalAddr = ipv4 . getNetworkInterfaces
 
@@ -23,12 +24,11 @@ sub :: ZonePlayer
 sub zp me port = do
     print $ "Subscribing to " ++ show zp
     let loc = zpLocation zp
-        addr = lUrl loc ++ ":" ++ lPort loc
 
     let opts =  defaults & header "CALLBACK" .~ [BSC.pack $ "<http://" ++ me ++ ":" ++ show port ++ "/eventSub>"]
                          & header "NT" .~  ["upnp:event"]
     print opts
-    resp <- customMethodWith "SUBSCRIBE" opts ("http://" ++ addr ++ "/MediaRenderer/AVTransport/Event")
+    resp <- customMethodWith "SUBSCRIBE" opts (T.unpack $ fmtLocation loc "http://" "/MediaRenderer/AVTransport/Event")
     print $ resp ^? responseBody
     print $ resp ^? responseStatus
     print $ resp ^? responseHeaders
@@ -69,12 +69,11 @@ renew :: ZonePlayer
 renew zp sid timeoutH = do
     print $ "Renewing to " ++ show zp
     let loc = zpLocation zp
-        addr = lUrl loc ++ ":" ++ lPort loc
 
     let opts =  defaults & header "SID" .~ [sid]
                          & header "TIMEOUT" .~  [timeoutH]
     print opts
-    resp <- customMethodWith "SUBSCRIBE" opts ("http://" ++ addr ++ "/MediaRenderer/AVTransport/Event")
+    resp <- customMethodWith "SUBSCRIBE" opts (T.unpack $ fmtLocation loc "http://" "/MediaRenderer/AVTransport/Event")
     print $ resp ^? responseBody
     print $ resp ^? responseStatus
     print $ resp ^? responseHeaders

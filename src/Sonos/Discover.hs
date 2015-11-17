@@ -25,8 +25,9 @@ import Control.Lens ((^?), (.~), (&))
 import qualified Data.List as L
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
+import qualified Formatting as Format
 
-type Parser = Parsec String ()
+type Parser = Parsec T.Text ()
 
 discover = withSocketsDo $ do
     (sock, addr) <- multicastSender "239.255.255.250" 1900
@@ -39,11 +40,11 @@ discover = withSocketsDo $ do
                    ]
                msg' = unlines msg
            sendTo sock msg' addr
-           (msg, _, addr1) <- recvFrom sock 1024
-           if L.isInfixOf "Sonos" msg
+           (msgR, _, addr1) <- recvFrom sock 1024
+           if L.isInfixOf "Sonos" msgR
                then do
-                   print msg
-                   return $ parse it "" msg
+                   print msgR
+                   return $ parse it "" (T.pack msgR)
                else loop
     loop
 
@@ -103,7 +104,7 @@ sonosEPP = do
     url <- traceShowId <$> manyTill (alphaNum <|> oneOf "/_-.()") (char ':') <?> "Missed url"
     port <- many digit <?> "Missed port"
     endpoint <- many (alphaNum <|> oneOf "/_-.()") <?> "Missed endpoint"
-    return $ Location proto url port endpoint
+    return $ Location (T.pack proto) (T.pack url) (T.pack port) (T.pack endpoint)
 
 
 locationP :: Parser Location
@@ -156,6 +157,10 @@ wifiP = do
     return seq
 
 
+fmtStatusTopology = Format.sformat (Format.stext Format.%
+                                    Format.stext Format.% ":" Format.%
+                                    Format.stext Format.% "/status/topology")
+
 getTopology = do
     first <- discover
     case first of
@@ -163,7 +168,7 @@ getTopology = do
         Right val -> do
             let SonosDiscovery {..} = val
                 Location {..} = sdLocation
-            r <- get (lProto ++ lUrl ++ ":" ++ lPort ++ "/status/topology")
+            r <- get (T.unpack $ fmtStatusTopology lProto lUrl lPort)
             let Just body = r ^? responseBody
             let zps = map toZP (toZonePlayer body)
             print zps
@@ -183,10 +188,10 @@ toZP c =
         [bootseq] = c $.// attribute "bootseq"
         [uuid] = c $.// attribute "uuid"
         [cntn] = c $// content
-        Right l' = parse sonosEPP "" (T.unpack location)
+        Right l' = parse sonosEPP "" location
         t = T.unpack
         b = \case
             "true" -> True
             "false" -> False
-    in ZonePlayer (t group) (b $ t coordinator) l' (t bootseq) (t uuid) (t cntn)
+    in ZonePlayer (t group) (b $ t coordinator) l' (t bootseq) (uuid) (t cntn)
 

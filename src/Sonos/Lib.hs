@@ -33,6 +33,7 @@ import qualified Web.Spock                  as WS
 import qualified Data.Map.Strict            as M
 import qualified Text.XML.Light.Extractors  as E
 import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as TE
 import qualified Data.Text.Lazy             as TL
 import qualified Data.Text.Lazy.Builder     as TLB
 import qualified Sonos.Plugins.Pandora as Pandora
@@ -63,8 +64,8 @@ findMatchingGlob args like = do
     putStrLn $ "Results were" ++ show (fst res)
     return $ fst res
 
-envelope :: String
-         -> String
+envelope :: T.Text
+          -> T.Text
 envelope content =
     wrap (Name "Envelope"
                (Just "http://schemas.xmlsoap.org/soap/envelope/")
@@ -75,124 +76,135 @@ envelope content =
                 Nothing
                 content
 
+
 wrap :: Name
-     -> Maybe String
-     -> String
-     -> String
+     -> Maybe T.Text
+     -> T.Text
+     -> T.Text
 wrap (Name {..}) ec content =
     let (pfx,pfxs) = case namePrefix of
-            Just p -> (T.unpack p ++ ":", ":" ++ T.unpack p)
+            Just p -> let fmtPL = Format.sformat $ Format.stext Format.% ":"
+                          fmtPR = Format.sformat $ ":" Format.% Format.stext
+                      in (fmtPL p, fmtPR p)
             Nothing -> ("","")
         ns = case nameNamespace of
-            Just n -> " xmlns" ++ pfxs ++ "=\"" ++ T.unpack n ++ "\""
+            Just n -> let fmtN = Format.sformat $ " xmlns" Format.% Format.stext Format.% "=\"" Format.% Format.stext Format.% "\""
+                      in fmtN pfxs n
             Nothing -> ""
         ec' = case ec of
-            Just e -> " " ++ pfx ++ "encodingStyle=\"" ++ e ++ "\""
+            Just e -> let fmtEC = Format.sformat $ " " Format.% Format.stext Format.% "encodingStyle=\"" Format.% Format.stext Format.% "\""
+                      in fmtEC pfx e
             Nothing -> ""
-    in "<"
-    ++ pfx
-    ++ T.unpack nameLocalName
-    ++ ns
-    ++ ec'
-    ++ ">"
-    ++ content
-    ++ "</"
-    ++ pfx
-    ++ T.unpack nameLocalName
-    ++ ">"
+    in 
+        let fmtM = Format.sformat $ "<" Format.% Format.stext Format.%
+                       Format.stext Format.%
+                       Format.stext Format.%
+                       Format.stext Format.%
+                   ">" Format.% Format.stext Format.%
+                   "</" Format.% Format.stext Format.%
+                       Format.stext Format.%
+                   ">"
+        in fmtM pfx nameLocalName ns ec' content pfx nameLocalName
 
-avTransportAction :: String
+avTransportAction :: T.Text
 avTransportAction = "urn:schemas-upnp-org:service:AVTransport:1"
 
-avTransportNS :: String
-avTransportNS = "xmlns:u=\"" ++ avTransportAction ++ "\""
+avTransportNS :: T.Text
+avTransportNS = Format.sformat ("xmlns:u=\"" Format.% Format.stext Format.% "\"") avTransportAction
 
-
-addURIToQueueTemplate_ :: String
-                       -> String
+addURIToQueueTemplate :: T.Text
+                       -> T.Text
                        -> Int
                        -> Int
-                       -> String
-addURIToQueueTemplate_ uri meta first next =
+                       -> T.Text
+addURIToQueueTemplate uri meta first next =
     avTransportTemplate "AddURIToQueue"
                         [ ("InstanceID", "0")
                         , ("EnqueuedURI", uri)
                         , ("EnqueuedURIMetaData", meta)
-                        , ("DesiredFirstTrackNumberEnqueued", show first)
-                        , ("EnqueueAsNext", show next)
+                        , ("DesiredFirstTrackNumberEnqueued", T.pack $ show first)
+                        , ("EnqueueAsNext", T.pack $ show next)
                         ]
 
-playTemplate_ :: String
-playTemplate_ =
+
+playTemplate :: T.Text
+playTemplate =
     avTransportTemplate "Play"
                         [ ("InstanceID", "0")
                         , ("Speed", "1")
                         ]
 
-setAVTransportURITemplate_ :: String
-                           -> String
-                           -> String
-setAVTransportURITemplate_ uri meta =
+setAVTransportURITemplate :: T.Text
+                          -> T.Text
+                          -> T.Text
+setAVTransportURITemplate uri meta =
     avTransportTemplate "SetAVTransportURI"
                         [ ("InstanceID", "0")
                         , ("CurrentURI", uri)
                         , ("CurrentURIMetaData", meta)
                         ]
 
-becomeCoordinatorOfStandaloneGroup_ :: String
-becomeCoordinatorOfStandaloneGroup_ =
+becomeCoordinatorOfStandaloneGroup :: T.Text
+becomeCoordinatorOfStandaloneGroup =
     avTransportTemplate "BecomeCoordinatorOfStandaloneGroup"
                         [ ("InstanceID", "0")
                         ]
 
-seekTrackTemplate_ :: Int
-                   -> String
-seekTrackTemplate_ track =
+seekTrackTemplate :: Int
+                  -> T.Text
+seekTrackTemplate track =
     avTransportTemplate "Seek"
                         [ ("InstanceID", "0")
                         , ("Unit", "TRACK_NR")
-                        , ("Target", show track)
+                        , ("Target", T.pack $ show track)
                         ]
 
-wrap_ :: (String, String)
-      -> String
-wrap_ (w, i) = wrap (fromString w)
+
+wrap' :: (String, T.Text)
+      -> T.Text
+wrap' (w, i) = wrap (fromString w)
                     Nothing
                     i
 
-avTransportTemplate :: String
-                    -> [(String, String)]
-                    -> String
+avTransportTemplate :: T.Text
+                    -> [(String, T.Text)]
+                    -> T.Text
 avTransportTemplate action md =
-    let avTransport cts = "<u:"
-                       ++ action
-                       ++ " "
-                       ++ avTransportNS
-                       ++ ">"
-                       ++ cts
-                       ++ "</u:"
-                       ++ action
-                       ++ ">"
-        md' = foldl1 (++) $ map wrap_ md
+    let avTransport cts = Format.sformat fmtI
+                                         action
+                                         avTransportNS
+                                         cts
+                                         action
+        fmtI = "<u:" Format.% Format.stext Format.%
+               " " Format.% Format.stext Format.%
+               ">" Format.% Format.stext Format.%
+               "</u:" Format.% Format.stext Format.%
+               ">"
+        md' = T.concat $ map wrap' md
     in avTransport md'
 
-soapAction :: String
-           -> String
-           -> String
+soapActionFmt = Format.sformat (Format.stext Format.% "#" Format.% Format.stext)
+
+urlFmt = Format.sformat (Format.stext Format.% ":" Format.% Format.stext)
+hostFmt = Format.sformat ("http://" Format.% Format.stext Format.% Format.stext)
+
+soapAction :: T.Text
+           -> T.Text
+           -> T.Text
            -> IO (Maybe BSL.ByteString)
 soapAction host action msg = do
-    let opts = defaults & header "Host" .~ [BSC.pack host]
+    let opts = defaults & header "Host" .~ [TE.encodeUtf8 host]
                         & header "User-Agent" .~ ["Haskell post"]
                         & header "Content-type" .~ ["text/xml; charset=\"UTF-8\""]
-                        & header "Content-length" .~ [BSC.pack $ show $ length msg]
-                        & header "SOAPAction" .~ [BSC.pack $ avTransportAction ++ "#" ++ action]
+                        & header "Content-length" .~ [BSC.pack $ show $ T.length msg]
+                        & header "SOAPAction" .~ [TE.encodeUtf8 $ soapActionFmt avTransportAction action]
         ep = "/MediaRenderer/AVTransport/Control"
 
     print opts
     print msg
     resp <- postWith opts
-                     ("http://" ++ host ++ ep)
-                     (BSC.pack $ envelope msg)
+                     (T.unpack $ hostFmt host ep)
+                     (TE.encodeUtf8 $ envelope msg)
 
     print $ resp ^? responseBody
     print $ resp ^? responseStatus
@@ -211,6 +223,9 @@ getRoom zps room =
         Just room' = M.lookup (fmap toLower room) rooms
     in room'
 
+
+fmtRincon = Format.sformat ("x-rincon:" Format.% Format.stext)
+
 groupRoom :: [ZonePlayer]
           -> CliArguments
           -> ZonePlayer
@@ -220,8 +235,8 @@ groupRoom zps args a b = do
     let coordA = findCoordinatorForIp (zpLocation a) zps
         coordB = findCoordinatorForIp (zpLocation b) zps
         addr = let l = zpLocation coordA
-               in lUrl l ++ ":" ++ lPort l
-    let avMessage = setAVTransportURITemplate_ ("x-rincon:" ++ zpUUID coordB) ""
+               in urlFmt (lUrl l) (lPort l)
+    let avMessage = setAVTransportURITemplate (fmtRincon (zpUUID coordB)) ""
     soapAction addr "SetAVTransportURI" avMessage
     return ()
 
@@ -231,11 +246,13 @@ ungroupRoom :: [ZonePlayer]
             -> IO ()
 ungroupRoom zps args room = do
     let addr = let l = zpLocation room
-               in lUrl l ++ ":" ++ lPort l
-    let avMessage = becomeCoordinatorOfStandaloneGroup_
+               in urlFmt (lUrl l) (lPort l)
+    let avMessage = becomeCoordinatorOfStandaloneGroup
     soapAction addr "BecomeCoordinatorOfStandaloneGroup" avMessage
     return ()
 
+
+fmtRinconQueue = Format.sformat ("x-rincon-queue:" Format.% Format.stext Format.% "#0")
 
 queueAndPlayTrackLike :: [ZonePlayer]
                       -> CliArguments
@@ -247,18 +264,24 @@ queueAndPlayTrackLike zps args host like = do
     queuedBody <- queueTrackLike zps args host like
     let trackNo = getTrackNum queuedBody
         addr = let l = zpLocation coord
-               in lUrl l ++ ":" ++ lPort l
+               in urlFmt (lUrl l) (lPort l)
 
     putStrLn ("Coord was: " ++ show  coord)
     uuid <- fetchUUID addr
-    let avMessage = setAVTransportURITemplate_ ("x-rincon-queue:" ++ T.unpack uuid ++ "#0") ""
+    let avMessage = setAVTransportURITemplate (fmtRinconQueue uuid) ""
 
     soapAction addr "SetAVTransportURI" avMessage
-    soapAction addr "Seek" (seekTrackTemplate_ trackNo)
-    soapAction addr "Play" playTemplate_
+    soapAction addr "Seek" (seekTrackTemplate trackNo)
+    soapAction addr "Play" playTemplate
 
 
     return ()
+
+firstTrackE args track = T.pack
+                    $ urlEncode
+                    $ replace ".flac" ".mp3"
+                    $ replace (dir args) "" track
+fmtCifs = Format.sformat ("x-file-cifs://asgard/mp3Music" Format.% Format.stext)
 
 queueTrackLike :: [ZonePlayer]
                -> CliArguments
@@ -272,15 +295,12 @@ queueTrackLike zps args host like = do
     putStrLn $ "First track is:" ++ firstTrack
 
 
-    let firstTrackE = urlEncode
-                    $ replace ".flac" ".mp3"
-                    $ replace (dir args) "" firstTrack
-        soapMessage = addURIToQueueTemplate_ ("x-file-cifs://asgard/mp3Music/" ++ firstTrackE)
-                                             ""
-                                             0
-                                             0
+    let soapMessage = addURIToQueueTemplate (fmtCifs $ firstTrackE args firstTrack)
+                                            ""
+                                            0
+                                            0
         addr = let l = zpLocation coord
-               in lUrl l ++ ":" ++ lPort l
+               in urlFmt (lUrl l) (lPort l)
 
     putStrLn ("Coord was: " ++ show coord)
     Just queuedBody <- soapAction addr "AddURIToQueue" soapMessage
@@ -296,15 +316,15 @@ queueAndPlayArtistLike zps args host like = do
     queuedBodys <- queueArtistLike zps args host like
     let trackNo = getTrackNum $ fromJust $ head $ queuedBodys
         addr = let l = zpLocation coord
-               in lUrl l ++ ":" ++ lPort l
+               in urlFmt (lUrl l) (lPort l)
 
     putStrLn ("Coord was: " ++ show  coord)
     uuid <- fetchUUID addr
-    let avMessage = setAVTransportURITemplate_ ("x-rincon-queue:" ++ T.unpack uuid ++ "#0") ""
+    let avMessage = setAVTransportURITemplate (fmtRinconQueue uuid) ""
 
     soapAction addr "SetAVTransportURI" avMessage
-    soapAction addr "Seek" (seekTrackTemplate_ trackNo)
-    soapAction addr "Play" playTemplate_
+    soapAction addr "Seek" (seekTrackTemplate trackNo)
+    soapAction addr "Play" playTemplate
 
 
     return ()
@@ -321,15 +341,12 @@ queueArtistLike zps args host like = do
     putStrLn $ "Tracks are:" ++ show tracks'
 
 
-    let firstTrackE track = urlEncode
-                    $ replace ".flac" ".mp3"
-                    $ replace (dir args) "" track
-        soapMessage track = addURIToQueueTemplate_ ("x-file-cifs://asgard/mp3Music/" ++ firstTrackE track)
-                                                   ""
-                                                   0
-                                                   0
+    let soapMessage track = addURIToQueueTemplate (fmtCifs $ firstTrackE args track)
+                                                  ""
+                                                  0
+                                                  0
         addr = let l = zpLocation coord
-               in lUrl l ++ ":" ++ lPort l
+               in urlFmt (lUrl l) (lPort l)
 
     putStrLn ("Coord was: " ++ show coord)
     queuedBodys <- mapM (\t -> soapAction addr "AddURIToQueue" (soapMessage t)) tracks'
@@ -380,41 +397,47 @@ playPandoraStationLike :: [ZonePlayer]
                        -> ZonePlayer
                        -> String
                        -> IO ()
-playPandoraStationLike zps args host like = do
+playPandoraStationLike zps args@(CliArguments{..}) host like = do
     let coord = findCoordinatorForIp (zpLocation host) zps
     let addr = let l = zpLocation coord
-               in lUrl l ++ ":" ++ lPort l
+               in urlFmt (lUrl l) (lPort l)
 
     putStrLn ("Coord was: " ++ show  coord)
 
-    pw <- Pandora.login (T.pack $ email args) (T.pack $ password args)
+    pw <- Pandora.login email password
     st <- Pandora.searchStation pw $ T.pack like
     print st
     st' <- Pandora.createStation pw (Pandora.artistMusicToken $ head $ Pandora.msrArtists st)
 
     print st'
-    let email' = T.pack $ email args
-        metadata = T.unpack $ didlTemplate (Pandora.sStationId $ Pandora.csrStation st')
-                                            (Pandora.sStationName $ Pandora.csrStation st')
-                                            email'
-    let avMessage = setAVTransportURITemplate_ ("pndrradio:" ++ (T.unpack $ Pandora.sStationId $ Pandora.csrStation st') ++ "?sn=6") metadata
+    let station = Pandora.csrStation st'
+        stationId = Pandora.sStationId station
+        stationName = Pandora.sStationName station
+        metadata = didlTemplate stationId
+                                stationName
+                                email
+    let avMessage = setAVTransportURITemplate (pandoraRadioFmt stationId)
+                                              metadata
 
     soapAction addr "SetAVTransportURI" avMessage
-    soapAction addr "Play" playTemplate_
+    soapAction addr "Play" playTemplate
 
 
     return ()
 
-fetchUUID :: String
+pandoraRadioFmt = Format.sformat ("pndrradio:" Format.% Format.stext Format.% "?sn=6")
+
+fetchUUID :: T.Text
           -> IO T.Text
 fetchUUID host = do
     Just body <- getXMLDescription host
     return $ getUUID body
 
-getXMLDescription :: String
+getXMLDescription :: T.Text
                   -> IO (Maybe BSL.ByteString)
 getXMLDescription host = do
-    res <- get $ "http://" ++ host ++ "/xml/device_description.xml"
+    let fmtXmlUri = Format.sformat ("http://" Format.% Format.stext Format.% "/xml/device_description.xml")
+    res <- get $ T.unpack $ fmtXmlUri host
     return $ res ^? responseBody
 
 getUUID :: BSL.ByteString

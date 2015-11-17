@@ -20,12 +20,15 @@ import Options.Applicative     ( Parser
                                , short
                                , value
                                , strOption
+                               , option
+                               , auto
                                )
 import Data.Monoid ((<>))
 import Sonos.Discover (getTopology)
 import Sonos.Serve (serve)
 import Sonos.Types (CliArguments(..))
 import Sonos.Events (sub)
+import qualified Data.Text as T
 
 parseArgs :: IO CliArguments
 parseArgs = execParser $ info (helper <*> parseCliArgs) fullDesc
@@ -37,15 +40,17 @@ parseCliArgs =
             <> short 'd'
             <> help "Directory to search in"
             )
-        email = strOption
+        email :: Parser T.Text
+        email = fmap T.pack $ strOption
             ( long "email"
             <> short 'e'
             <> help "email for pandora"
             )
-        password = strOption
+        password :: Parser T.Text
+        password = fmap T.pack $ strOption
             ( long "password"
             <> short 'p'
-            <> help "password for pandora" 
+            <> help "password for pandora"
             )
     in CliArguments <$> directory <*> email <*> password
 
