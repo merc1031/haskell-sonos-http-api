@@ -13,6 +13,7 @@ import qualified Web.Spock as WS
 import Network.Wai.Middleware.RequestLogger
 import Data.Default
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.Text as T
 
 
 serve st' args = do
@@ -36,6 +37,8 @@ enqueueLikeArtistR = "likeArtist" WS.<//> "enqueue" WS.<//> WS.var WS.<//> WS.va
 playPandoraRadioLikeR :: WS.Path '[String, String]
 playPandoraRadioLikeR = "pandora" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
 
+browseContentDirectoryR :: WS.Path '[T.Text, T.Text, Int, Int, T.Text]
+browseContentDirectoryR = "browse" WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var
 
 listR :: WS.Path '[]
 listR = "list"
@@ -124,6 +127,11 @@ routes args = do
         liftIO $ do
             putStrLn $ "Room was: " ++ room
             playPandoraStationLike rst args room' like
+        return ()
+    WS.get browseContentDirectoryR $ \cat filt s c so -> do
+        rst <- accessState
+        liftIO $ do
+            browseContentDirectory rst args cat filt s c so
         return ()
     WS.get listR $ do
         rst <- accessState

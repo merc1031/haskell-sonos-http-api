@@ -38,8 +38,11 @@ import qualified Data.Text.Lazy             as TL
 import qualified Data.Text.Lazy.Builder     as TLB
 import qualified Sonos.Plugins.Pandora as Pandora
 import qualified HTMLEntities.Builder as HTML
+import qualified HTMLEntities.Decoder as HTML
 import qualified Data.Text.Format as Fmt
 import qualified Formatting as Format
+
+import Debug.Trace
 
 findMatchingArtistGlob :: CliArguments
                        -> String
@@ -109,8 +112,14 @@ wrap (Name {..}) ec content =
 avTransportAction :: T.Text
 avTransportAction = "urn:schemas-upnp-org:service:AVTransport:1"
 
+cdTransportAction :: T.Text
+cdTransportAction = "urn:schemas-upnp-org:service:ContentDirectory:1"
+
 avTransportNS :: T.Text
 avTransportNS = Format.sformat ("xmlns:u=\"" Format.% Format.stext Format.% "\"") avTransportAction
+
+cdTransportNS :: T.Text
+cdTransportNS = Format.sformat ("xmlns:u=\"" Format.% Format.stext Format.% "\"") cdTransportAction
 
 addURIToQueueTemplate :: T.Text
                        -> T.Text
@@ -159,6 +168,22 @@ seekTrackTemplate track =
                         , ("Target", T.pack $ show track)
                         ]
 
+browseContentDirectoryTemplate :: T.Text
+                               -> T.Text
+                               -> T.Text
+                               -> Int
+                               -> Int
+                               -> T.Text
+                               -> T.Text
+browseContentDirectoryTemplate oid flag filter sidx rqc sort =
+    cdTransportTemplate "Browse"
+                        [ ("ObjectID", oid)
+                        , ("BrowseFlag", flag)
+                        , ("Filter", filter)
+                        , ("StartingIndex", T.pack $ show sidx)
+                        , ("RequestedCount", T.pack $ show rqc)
+                        , ("SortCriteria", sort)
+                        ]
 
 wrap' :: (String, T.Text)
       -> T.Text
@@ -169,10 +194,21 @@ wrap' (w, i) = wrap (fromString w)
 avTransportTemplate :: T.Text
                     -> [(String, T.Text)]
                     -> T.Text
-avTransportTemplate action md =
+avTransportTemplate action md = transportTemplate action avTransportNS md
+
+cdTransportTemplate :: T.Text
+                    -> [(String, T.Text)]
+                    -> T.Text
+cdTransportTemplate action md = transportTemplate action cdTransportNS md
+
+transportTemplate :: T.Text
+                  -> T.Text
+                  -> [(String, T.Text)]
+                  -> T.Text
+transportTemplate action ns md =
     let avTransport cts = Format.sformat fmtI
                                          action
-                                         avTransportNS
+                                         ns
                                          cts
                                          action
         fmtI = "<u:" Format.% Format.stext Format.%
@@ -188,17 +224,22 @@ soapActionFmt = Format.sformat (Format.stext Format.% "#" Format.% Format.stext)
 urlFmt = Format.sformat (Format.stext Format.% ":" Format.% Format.stext)
 hostFmt = Format.sformat ("http://" Format.% Format.stext Format.% Format.stext)
 
+
+cdSoapAction = soapAction cdTransportAction "/MediaServer/ContentDirectory/Control"
+avSoapAction = soapAction avTransportAction "/MediaRenderer/AVTransport/Control"
+
 soapAction :: T.Text
            -> T.Text
            -> T.Text
+           -> T.Text
+           -> T.Text
            -> IO (Maybe BSL.ByteString)
-soapAction host action msg = do
+soapAction transport ep host action msg = do
     let opts = defaults & header "Host" .~ [TE.encodeUtf8 host]
                         & header "User-Agent" .~ ["Haskell post"]
                         & header "Content-type" .~ ["text/xml; charset=\"UTF-8\""]
                         & header "Content-length" .~ [BSC.pack $ show $ T.length msg]
-                        & header "SOAPAction" .~ [TE.encodeUtf8 $ soapActionFmt avTransportAction action]
-        ep = "/MediaRenderer/AVTransport/Control"
+                        & header "SOAPAction" .~ [TE.encodeUtf8 $ soapActionFmt transport action]
 
     print opts
     print msg
@@ -237,7 +278,7 @@ groupRoom zps args a b = do
         addr = let l = zpLocation coordA
                in urlFmt (lUrl l) (lPort l)
     let avMessage = setAVTransportURITemplate (fmtRincon (zpUUID coordB)) ""
-    soapAction addr "SetAVTransportURI" avMessage
+    avSoapAction addr "SetAVTransportURI" avMessage
     return ()
 
 ungroupRoom :: [ZonePlayer]
@@ -248,7 +289,7 @@ ungroupRoom zps args room = do
     let addr = let l = zpLocation room
                in urlFmt (lUrl l) (lPort l)
     let avMessage = becomeCoordinatorOfStandaloneGroup
-    soapAction addr "BecomeCoordinatorOfStandaloneGroup" avMessage
+    avSoapAction addr "BecomeCoordinatorOfStandaloneGroup" avMessage
     return ()
 
 
@@ -270,9 +311,9 @@ queueAndPlayTrackLike zps args host like = do
     uuid <- fetchUUID addr
     let avMessage = setAVTransportURITemplate (fmtRinconQueue uuid) ""
 
-    soapAction addr "SetAVTransportURI" avMessage
-    soapAction addr "Seek" (seekTrackTemplate trackNo)
-    soapAction addr "Play" playTemplate
+    avSoapAction addr "SetAVTransportURI" avMessage
+    avSoapAction addr "Seek" (seekTrackTemplate trackNo)
+    avSoapAction addr "Play" playTemplate
 
 
     return ()
@@ -303,7 +344,7 @@ queueTrackLike zps args host like = do
                in urlFmt (lUrl l) (lPort l)
 
     putStrLn ("Coord was: " ++ show coord)
-    Just queuedBody <- soapAction addr "AddURIToQueue" soapMessage
+    Just queuedBody <- avSoapAction addr "AddURIToQueue" soapMessage
     return queuedBody
 
 queueAndPlayArtistLike :: [ZonePlayer]
@@ -322,9 +363,9 @@ queueAndPlayArtistLike zps args host like = do
     uuid <- fetchUUID addr
     let avMessage = setAVTransportURITemplate (fmtRinconQueue uuid) ""
 
-    soapAction addr "SetAVTransportURI" avMessage
-    soapAction addr "Seek" (seekTrackTemplate trackNo)
-    soapAction addr "Play" playTemplate
+    avSoapAction addr "SetAVTransportURI" avMessage
+    avSoapAction addr "Seek" (seekTrackTemplate trackNo)
+    avSoapAction addr "Play" playTemplate
 
 
     return ()
@@ -349,7 +390,7 @@ queueArtistLike zps args host like = do
                in urlFmt (lUrl l) (lPort l)
 
     putStrLn ("Coord was: " ++ show coord)
-    queuedBodys <- mapM (\t -> soapAction addr "AddURIToQueue" (soapMessage t)) tracks'
+    queuedBodys <- mapM (\t -> avSoapAction addr "AddURIToQueue" (soapMessage t)) tracks'
     return queuedBodys
 
 didlWrapper =
@@ -419,13 +460,118 @@ playPandoraStationLike zps args@(CliArguments{..}) host like = do
     let avMessage = setAVTransportURITemplate (pandoraRadioFmt stationId)
                                               metadata
 
-    soapAction addr "SetAVTransportURI" avMessage
-    soapAction addr "Play" playTemplate
+    avSoapAction addr "SetAVTransportURI" avMessage
+    avSoapAction addr "Play" playTemplate
 
 
     return ()
 
 pandoraRadioFmt = Format.sformat ("pndrradio:" Format.% Format.stext Format.% "?sn=6")
+
+
+{-
+METHOD: POST http://192.168.2.6:1400/MediaServer/ContentDirectory/Control
+HEADER: SOAPACTION: "urn:schemas-upnp-org:service:ContentDirectory:1#Browse"
+BODY:
+
+<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+<s:Body>
+    <u:Browse xmlns:u="urn:schemas-upnp-org:service:ContentDirectory:1">
+         <ObjectID>A:ARTIST</ObjectID>
+          <BrowseFlag>BrowseDirectChildren</BrowseFlag>
+          <Filter>*</Filter>
+         <StartingIndex>0</StartingIndex>
+         <RequestedCount>10</RequestedCount>
+         <SortCriteria>*</SortCriteria>
+     </u:Browse>
+</s:Body>
+</s:Envelope>
+-}
+
+browseContentDirectory :: [ZonePlayer]
+                       -> CliArguments
+                       -> T.Text -- Category A:ARTIST A:ALBUM A:TRACK
+                       -> T.Text -- Filter?
+                       -> Int -- Start
+                       -> Int -- Count
+                       -> T.Text --sort criteria
+                       -> IO ()
+
+browseContentDirectory zps args cat filt s c sor = do
+    let coord = head zps
+    let addr = let l = zpLocation coord
+               in urlFmt (lUrl l) (lPort l)
+
+    putStrLn ("Coord was: " ++ show  coord)
+
+    let cdMessage = browseContentDirectoryTemplate cat
+                                                   "BrowseDirectChildren"
+                                                   filt
+                                                   s
+                                                   c
+                                                   sor
+
+    resp <- cdSoapAction addr "Browse" cdMessage
+
+    print resp
+    let Just body = resp
+        structured = browsedContent body
+    print structured
+
+    return ()
+
+browsedContent :: BSL.ByteString
+               -> [(T.Text, T.Text)]
+browsedContent body =
+    let cursor = fromDocument $ parseLBS_ def body
+        [root] = cursor $/ element "{http://schemas.xmlsoap.org/soap/envelope/}Body"
+        [resultO] = root $/ element (Name "BrowseResponse" (Just "urn:schemas-upnp-org:service:ContentDirectory:1") (Just "u"))
+        numReturned = resultO $/ element "NumberReturned"
+                           &// content
+        totalMatches = resultO $/ element "TotalMatches"
+                           &// content
+
+        [result] = resultO $/ element "Result"
+        result' = (T.concat $ result $/ content)
+
+        resultCursor = fromDocument $ parseLBS_ def $ BSL.fromStrict $ TE.encodeUtf8 result'
+
+        things = resultCursor $/ element "{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}container"
+        -- tracks are called items instead of containers
+
+        res = map transform things
+        transform elem =
+            let title = element (Name "title" (Just "http://purl.org/dc/elements/1.1/") (Just "dc")) &// content
+                link = element "{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}res" &// content
+                {- there is more and differing data here
+                A:ARTIST has
+                    <container id="A:ARTIST/Abigail" parentID="A:ARTIST" restricted="true">
+                        <dc:title>Abigail</dc:title>
+                        <upnp:class>object.container.person.musicArtist</upnp:class>
+                        <res protocolInfo="x-rincon-playlist:*:*:*">x-rincon-playlist:RINCON_B8E937B6BCCE01400#A:ARTIST/Abigail</res>
+                    </container>
+                A:ALBUM has
+                    <container id="A:ALBUM/...And%20Death%20Said%20Live" parentID="A:ALBUM" restricted="true">
+                        <dc:title>...And Death Said Live</dc:title>
+                        <upnp:class>object.container.album.musicAlbum</upnp:class>
+                        <res protocolInfo="x-rincon-playlist:*:*:*">x-rincon-playlist:RINCON_B8E937B6BCCE01400#A:ALBUM/...And%20Death%20Said%20Live</res>
+                        <dc:creator>Mors Principium Est</dc:creator>
+                        <upnp:albumArtURI>/getaa?u=x-file-cifs%3a%2f%2fasgard%2fmp3Music%2fMors%2520Principium%2520Est%2f%255b2012%255d%2520...And%2520Death%2520Said%2520Live%2f01%2520-%2520Mors%2520Principium%2520Est%2520-%2520The%2520Awakening.mp3&amp;v=106</upnp:albumArtURI>
+                    </container>
+                A:TRACKS has
+                    <item id="S://asgard/mp3Music/Isis/%5b2002%5d%20Oceanic/05%20-%20Isis%20-%20-.mp3" parentID="A:TRACKS" restricted="true">
+                        <res protocolInfo="x-file-cifs:*:audio/mpeg:*">x-file-cifs://asgard/mp3Music/Isis/%5b2002%5d%20Oceanic/05%20-%20Isis%20-%20-.mp3</res>
+                        <upnp:albumArtURI>/getaa?u=x-file-cifs%3a%2f%2fasgard%2fmp3Music%2fIsis%2f%255b2002%255d%2520Oceanic%2f05%2520-%2520Isis%2520-%2520-.mp3&amp;v=106</upnp:albumArtURI>
+                        <dc:title>-</dc:title>
+                        <upnp:class>object.item.audioItem.musicTrack</upnp:class>
+                        <dc:creator>Isis</dc:creator>
+                        <upnp:album>Oceanic</upnp:album>
+                        <upnp:originalTrackNumber>5</upnp:originalTrackNumber>
+                    </item>
+                -}
+            in (head $ elem $/ title, head $ elem $/ link)
+    in res
 
 fetchUUID :: T.Text
           -> IO T.Text
