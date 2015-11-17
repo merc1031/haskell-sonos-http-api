@@ -61,6 +61,8 @@ library
                        , unordered-containers
                        , time
                        , html-entities
+                       , text-format
+                       , formatting
   default-language:    Haskell2010
 
 executable sonos-exe

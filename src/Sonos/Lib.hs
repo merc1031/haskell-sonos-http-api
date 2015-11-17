@@ -37,6 +37,8 @@ import qualified Data.Text.Lazy             as TL
 import qualified Data.Text.Lazy.Builder     as TLB
 import qualified Sonos.Plugins.Pandora as Pandora
 import qualified HTMLEntities.Builder as HTML
+import qualified Data.Text.Format as Fmt
+import qualified Formatting as Format
 
 findMatchingArtistGlob :: CliArguments
                        -> String
@@ -333,6 +335,46 @@ queueArtistLike zps args host like = do
     queuedBodys <- mapM (\t -> soapAction addr "AddURIToQueue" (soapMessage t)) tracks'
     return queuedBodys
 
+didlWrapper =
+    let dc,upnp,r,ns :: T.Text
+        dc = "xmlns:dc=\"http://purl.org/dc/elements/1.1/\""
+        upnp = "xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\""
+        r = "xmlns:r=\"urn:schemas-rinconnetworks-com:metadata-1-0/\""
+        ns = "xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\""
+        stext' l r = l Format.% Format.stext Format.% r
+    in Format.sformat ("<DIDL-Lite "
+                      `stext'` " "
+                      `stext'` " "
+                      `stext'` " "
+                      `stext'`
+                      ">"
+                      `stext'`
+                      "</DIDL-Lite>"
+                      )
+                      dc
+                      upnp
+                      r
+                      ns
+
+didlTemplate :: T.Text
+             -> T.Text
+             -> T.Text
+             -> T.Text
+didlTemplate stId stName email =
+    let stext' l r = l Format.% Format.stext Format.% r
+    in didlWrapper $ Format.sformat
+        ("<item id=\"OOOX" `stext'` " parentID=\"0\" restricted=\"true\">\
+        \<dc:title>" `stext'` "</dc:title>\
+        \<upnp:class>object.item.audioItem.audioBroadcast</upnp:class>\
+        \<desc id=\"cdudn\" nameSpace=\"urn:schemas-rinconnetworks-com:metadata-1-0/\">\
+        \SA_RINCON3_" `stext'` "\
+        \</desc>\
+        \</item>"
+        )
+        stId
+        stName
+        email
+
 playPandoraStationLike :: [ZonePlayer]
                        -> CliArguments
                        -> ZonePlayer
@@ -352,19 +394,9 @@ playPandoraStationLike zps args host like = do
 
     print st'
     let email' = T.pack $ email args
-        metadata = TL.unpack $ TLB.toLazyText $ HTML.text $ T.concat
-           [ "<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" xmlns:r=\"urn:schemas-rinconnetworks-com:metadata-1-0/\" xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">"
-           , T.concat ["<item id=\"OOOX", (Pandora.sStationId $ Pandora.csrStation st'), "\" parentID=\"0\" restricted=\"true\">"]
-           , "<dc:title>"
-           , Pandora.sStationName $ Pandora.csrStation st'
-           , "</dc:title>"
-           , "<upnp:class>object.item.audioItem.audioBroadcast</upnp:class>"
-           , "<desc id=\"cdudn\" nameSpace=\"urn:schemas-rinconnetworks-com:metadata-1-0/\">"
-           , T.concat ["SA_RINCON3_", email']
-           , "</desc>"
-           , "</item>"
-           , "</DIDL-Lite>"
-           ]
+        metadata = T.unpack $ didlTemplate (Pandora.sStationId $ Pandora.csrStation st')
+                                            (Pandora.sStationName $ Pandora.csrStation st')
+                                            email'
     let avMessage = setAVTransportURITemplate_ ("pndrradio:" ++ (T.unpack $ Pandora.sStationId $ Pandora.csrStation st') ++ "?sn=6") metadata
 
     soapAction addr "SetAVTransportURI" avMessage
