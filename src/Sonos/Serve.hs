@@ -33,6 +33,9 @@ playLikeArtistR = "likeArtist" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
 enqueueLikeArtistR :: WS.Path '[String, String]
 enqueueLikeArtistR = "likeArtist" WS.<//> "enqueue" WS.<//> WS.var WS.<//> WS.var
 
+playPandoraRadioLikeR :: WS.Path '[String, String]
+playPandoraRadioLikeR = "pandora" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
+
 
 listR :: WS.Path '[]
 listR = "list"
@@ -115,6 +118,13 @@ routes args = do
         b <- WS.body
         liftIO $ print $ xmlEvent $ BSL.fromStrict b
         return () --WS.raw $ print data
+    WS.get playPandoraRadioLikeR $ \room like -> do
+        rst <- accessState
+        let room' = getRoom rst room
+        liftIO $ do
+            putStrLn $ "Room was: " ++ room
+            playPandoraStationLike rst args room' like
+        return ()
     WS.get listR $ do
         rst <- accessState
         WS.json rst

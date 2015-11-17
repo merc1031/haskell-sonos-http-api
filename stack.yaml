@@ -4,12 +4,14 @@ packages:
 - '.'
 - location:
     git: https://github.com/merc1031/Spock.git
-    commit: a9f1428d89827644bf174d949114d87b32d5515c
+    commit: c13fc9bcade9afe11b008a1c20d9498bcee34d7b
 
 extra-deps:
 - xml-extractors-0.4.0.1
 - idiii-0.1.3.3
 - xml2json-0.2.0.0
+- Crypto-4.2.5.1
+- html-entities-1.1.0.0
 
 flags: {}
 

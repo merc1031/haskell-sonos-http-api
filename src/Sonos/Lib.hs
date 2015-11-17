@@ -8,7 +8,7 @@ module Sonos.Lib where
 
 import System.FilePath.Glob
 import Network.Wreq
-import Network.HTTP.Base
+import Network.HTTP.Base (urlEncode)
 import Data.String.Utils
 import Text.XML
 import Text.XML.Cursor
@@ -33,6 +33,10 @@ import qualified Web.Spock                  as WS
 import qualified Data.Map.Strict            as M
 import qualified Text.XML.Light.Extractors  as E
 import qualified Data.Text                  as T
+import qualified Data.Text.Lazy             as TL
+import qualified Data.Text.Lazy.Builder     as TLB
+import qualified Sonos.Plugins.Pandora as Pandora
+import qualified HTMLEntities.Builder as HTML
 
 findMatchingArtistGlob :: CliArguments
                        -> String
@@ -328,6 +332,46 @@ queueArtistLike zps args host like = do
     putStrLn ("Coord was: " ++ show coord)
     queuedBodys <- mapM (\t -> soapAction addr "AddURIToQueue" (soapMessage t)) tracks'
     return queuedBodys
+
+playPandoraStationLike :: [ZonePlayer]
+                       -> CliArguments
+                       -> ZonePlayer
+                       -> String
+                       -> IO ()
+playPandoraStationLike zps args host like = do
+    let coord = findCoordinatorForIp (zpLocation host) zps
+    let addr = let l = zpLocation coord
+               in lUrl l ++ ":" ++ lPort l
+
+    putStrLn ("Coord was: " ++ show  coord)
+
+    pw <- Pandora.login (T.pack $ email args) (T.pack $ password args)
+    st <- Pandora.searchStation pw $ T.pack like
+    print st
+    st' <- Pandora.createStation pw (Pandora.artistMusicToken $ head $ Pandora.msrArtists st)
+
+    print st'
+    let email' = T.pack $ email args
+        metadata = TL.unpack $ TLB.toLazyText $ HTML.text $ T.concat
+           [ "<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" xmlns:r=\"urn:schemas-rinconnetworks-com:metadata-1-0/\" xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\">"
+           , T.concat ["<item id=\"OOOX", (Pandora.sStationId $ Pandora.csrStation st'), "\" parentID=\"0\" restricted=\"true\">"]
+           , "<dc:title>"
+           , Pandora.sStationName $ Pandora.csrStation st'
+           , "</dc:title>"
+           , "<upnp:class>object.item.audioItem.audioBroadcast</upnp:class>"
+           , "<desc id=\"cdudn\" nameSpace=\"urn:schemas-rinconnetworks-com:metadata-1-0/\">"
+           , T.concat ["SA_RINCON3_", email']
+           , "</desc>"
+           , "</item>"
+           , "</DIDL-Lite>"
+           ]
+    let avMessage = setAVTransportURITemplate_ ("pndrradio:" ++ (T.unpack $ Pandora.sStationId $ Pandora.csrStation st') ++ "?sn=6") metadata
+
+    soapAction addr "SetAVTransportURI" avMessage
+    soapAction addr "Play" playTemplate_
+
+
+    return ()
 
 fetchUUID :: String
           -> IO T.Text

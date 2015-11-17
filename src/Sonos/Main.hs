@@ -37,7 +37,17 @@ parseCliArgs =
             <> short 'd'
             <> help "Directory to search in"
             )
-    in CliArguments <$> directory
+        email = strOption
+            ( long "email"
+            <> short 'e'
+            <> help "email for pandora"
+            )
+        password = strOption
+            ( long "password"
+            <> short 'p'
+            <> help "password for pandora" 
+            )
+    in CliArguments <$> directory <*> email <*> password
 
 setupDB = do
     conn <- open "sonos.db"

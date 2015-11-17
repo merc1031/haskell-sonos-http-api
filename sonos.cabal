@@ -24,6 +24,7 @@ library
                        , Sonos.DB
                        , Sonos.Events
                        , Sonos.DB.Types
+                       , Sonos.Plugins.Pandora
   build-depends:         base >= 4.7 && < 5
                        , parsec
                        , wreq
@@ -52,6 +53,14 @@ library
                        , network-info
                        , wai-extra
                        , data-default
+                       , Crypto
+                       , crypto-api
+                       , cryptocipher
+                       , base64-bytestring
+                       , base16-bytestring
+                       , unordered-containers
+                       , time
+                       , html-entities
   default-language:    Haskell2010
 
 executable sonos-exe

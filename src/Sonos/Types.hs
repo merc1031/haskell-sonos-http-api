@@ -13,6 +13,8 @@ type State = TVar [ZonePlayer]
 
 data CliArguments = CliArguments
     { dir :: !String
+    , email :: !String
+    , password :: !String
     }
 
 data Location = Location
