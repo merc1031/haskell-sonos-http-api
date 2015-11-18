@@ -43,6 +43,7 @@ discover = withSocketsDo $ do
            (msgR, _, addr1) <- recvFrom sock 1024
            if L.isInfixOf "Sonos" msgR
                then do
+                   close sock
                    print msgR
                    return $ parse it "" (T.pack msgR)
                else loop
