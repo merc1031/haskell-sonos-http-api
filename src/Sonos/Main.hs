@@ -7,7 +7,6 @@ import Control.Concurrent.STM
 import Control.Concurrent.Async
 import Control.Concurrent (threadDelay)
 import Control.Monad (forever)
-import           Database.SQLite.Simple
 import Options.Applicative     ( Parser
                                , execParser
                                , argument

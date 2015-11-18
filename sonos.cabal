@@ -21,14 +21,11 @@ library
                        , Sonos.Types
                        , Sonos.Serve
                        , Sonos.Main
-                       , Sonos.DB
                        , Sonos.Events
-                       , Sonos.DB.Types
                        , Sonos.Plugins.Pandora
   build-depends:         base >= 4.7 && < 5
                        , parsec
                        , wreq
-                       , Glob
                        , lens
                        , interpolatedstring-perl6
                        , bytestring
@@ -39,7 +36,6 @@ library
                        , transformers
                        , optparse-applicative
                        , xml
-                       , xml-extractors
                        , xml-conduit
                        , text
                        , network
@@ -47,8 +43,6 @@ library
                        , async
                        , stm
                        , aeson
-                       , idiii
-                       , sqlite-simple
                        , xml-types
                        , network-info
                        , wai-extra

@@ -7,7 +7,6 @@
 {-# LANGUAGE TupleSections #-}
 module Sonos.Lib where
 
-import System.FilePath.Glob
 import Network.Wreq
 import Network.HTTP.Base (urlEncode)
 import Data.String.Utils
@@ -34,7 +33,6 @@ import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.ByteString.Char8      as BSC
 import qualified Web.Spock                  as WS
 import qualified Data.Map.Strict            as M
-import qualified Text.XML.Light.Extractors  as E
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as TE
 import qualified Data.Text.Lazy             as TL
