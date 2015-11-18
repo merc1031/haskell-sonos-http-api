@@ -73,40 +73,40 @@ stateStuff topoV = do
 dbStuff state args = do
     let MusicDB {..} = mdb state
     putStrLn "Prepping music db"
-    let fetch :: [(T.Text,T.Text)] -> (Int -> IO (Int, Int, [(T.Text, T.Text)])) -> Int -> IO [(T.Text, T.Text)]
-        fetch xs fn !s = do
-            (nr, tm, res) <- fn s
+    let fetch :: [[(T.Text,T.Text)]] -> (Int -> IO (Int, Int, [(T.Text, T.Text)])) -> Int -> IO [[(T.Text, T.Text)]]
+        fetch !xs fn !s = do
+            (nr, tm, !res) <- fn s
             if (s + nr) < tm
-              then fetch (res ++ xs) fn (s + nr)
-              else return $ res ++ xs
+              then fetch (res:xs) fn (s + nr)
+              else return $ res:xs
     let pop = do
-            putStrLn "Refreshing music db"
+            putStrLn "**********************Refreshing music db**********************"
 
-            putStrLn "Refreshing artists"
-            allArtists <- fetch [] (\s -> do
+            putStrLn "**********************Refreshing artists**********************"
+            allArtists <- fetch [[]] (\s -> do
                                 putStrLn $ "Fetching artists offset at" ++ show s
                                 browseContentDirectory state args "A:ARTIST" "*" s 250 "*") 0
-            let !mapArtists = M.fromList $ map (\(k,v) -> (T.toLower k, v)) allArtists
+            let !mapArtists = M.fromList $ map (\(k,v) -> (T.toLower k, v)) $ concat allArtists
             atomically $ swapTVar artists mapArtists
-            putStrLn "Refreshed artists"
+            putStrLn "**********************Refreshed artists**********************"
 
-            putStrLn "Refreshing albums"
-            allAlbums <- fetch [] (\s -> do
+            putStrLn "**********************Refreshing albums**********************"
+            allAlbums <- fetch [[]] (\s -> do
                                putStrLn $ "Fetching albums offset at" ++ show s
                                browseContentDirectory state args "A:ALBUM" "*" s 250 "*") 0
-            let !mapAlbums = M.fromList $ map (\(k,v) -> (T.toLower k, v)) allAlbums
+            let !mapAlbums = M.fromList $ map (\(k,v) -> (T.toLower k, v)) $ concat allAlbums
             atomically $ swapTVar albums mapAlbums
-            putStrLn "Refreshed albums"
+            putStrLn "**********************Refreshed albums**********************"
 
-            putStrLn "Refreshing tracks"
-            allTracks <- fetch [] (\s -> do
+            putStrLn "**********************Refreshing tracks**********************"
+            allTracks <- fetch [[]] (\s -> do
                                putStrLn $ "Fetching tracks offset at" ++ show s
                                browseContentDirectory state args "A:TRACKS" "*" s 250 "*") 0
-            let !mapTracks = M.fromList $ map (\(k,v) -> (T.toLower k, v)) allTracks
+            let !mapTracks = M.fromList $ map (\(k,v) -> (T.toLower k, v)) $ concat allTracks
             atomically $ swapTVar tracks mapTracks
-            putStrLn "Refreshed tracks"
+            putStrLn "**********************Refreshed tracks**********************"
 
-            putStrLn "Refreshed music db"
+            putStrLn "**********************Refreshed music db**********************"
     let loop = do
             pop
             threadDelay $ 3600 * 1000000

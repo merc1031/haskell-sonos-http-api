@@ -175,5 +175,6 @@ routes args = do
         WS.text $ T.pack $ show res
     WS.get inspectTracksLikeR $ \s -> do
         adb <- liftIO $ atomically $ readTVar $ tracks $ mdb state
+        liftIO $ putStrLn $ show $ length $ M.toList adb
         let res = lookupMany s adb
         WS.text $ T.pack $ show res
