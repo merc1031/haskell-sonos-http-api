@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE RecordWildCards #-}
 module Sonos.Main where
 
 import Control.Concurrent.STM
@@ -26,9 +28,11 @@ import Options.Applicative     ( Parser
 import Data.Monoid ((<>))
 import Sonos.Discover (getTopology)
 import Sonos.Serve (serve)
-import Sonos.Types (CliArguments(..))
+import Sonos.Types (CliArguments(..), State(..), MusicDB(..))
 import Sonos.Events (sub)
+import Sonos.Lib (browseContentDirectory)
 import qualified Data.Text as T
+import qualified Data.Map.Strict as M
 
 parseArgs :: IO CliArguments
 parseArgs = execParser $ info (helper <*> parseCliArgs) fullDesc
@@ -54,38 +58,89 @@ parseCliArgs =
             )
     in CliArguments <$> directory <*> email <*> password
 
-setupDB = do
-    conn <- open "sonos.db"
-    execute_ conn "CREATE TABLE IF NOT EXISTS tracks (id INTEGER PRIMARY KEY, path TEXT, track_no INTEGER, track_name TEXT, album INTEGER, artist INTEGER)"
-    execute_ conn "CREATE TABLE IF NOT EXISTS album (id INTEGER PRIMARY KEY, path TEXT, album_name TEXT, artist INTEGER)"
-    execute_ conn "CREATE TABLE IF NOT EXISTS artist (id INTEGER PRIMARY KEY, path TEXT, artist_name TEXT)"
-    execute_ conn "CREATE INDEX IF NOT EXISTS path_idx ON tracks (path)"
-    execute_ conn "CREATE INDEX IF NOT EXISTS album_name_idx ON album (album_name)"
-    execute_ conn "CREATE INDEX IF NOT EXISTS path_idx ON album (path)"
-    close conn
 
-stateStuff tv = do
+stateStuff topoV = do
+    let pop = do
+            topo <- getTopology
+            atomically $ swapTVar topoV topo
+
     let loop = do
-            d <- getTopology
+            pop
             threadDelay 10000000
-            atomically $ swapTVar tv d
+    pop
     async $ forever $ loop
 
-st = do
-    topo <- getTopology
-    newTVarIO topo
+dbStuff state args = do
+    let MusicDB {..} = mdb state
+    putStrLn "Prepping music db"
+    let fetch :: [(T.Text,T.Text)] -> (Int -> IO (Int, Int, [(T.Text, T.Text)])) -> Int -> IO [(T.Text, T.Text)]
+        fetch xs fn !s = do
+            (nr, tm, res) <- fn s
+            putStrLn $ show $ length res
+            if (s + nr) < tm
+              then fetch (res ++ xs) fn (s + nr)
+              else return $ res ++ xs
+    let pop = do
+            putStrLn "Refreshing music db"
 
-main = do
-    args <- parseArgs
-    st' <- st
-    setupDB
-    stI <- atomically $ readTVar st'
-    stateStuff st'
+            putStrLn "Refreshing artists"
+            allArtists <- fetch [] (\s -> do
+                                putStrLn $ "Fetching artists offset at" ++ show s
+                                browseContentDirectory state args "A:ARTIST" "*" s 250 "*") 0
+            let !mapArtists = M.fromList $ map (\(k,v) -> (T.toLower k, v)) allArtists
+            atomically $ swapTVar artists mapArtists
+            putStrLn "Refreshed artists"
+
+            putStrLn "Refreshing albums"
+            allAlbums <- fetch [] (\s -> do
+                               putStrLn $ "Fetching albums offset at" ++ show s
+                               browseContentDirectory state args "A:ALBUM" "*" s 250 "*") 0
+            let !mapAlbums = M.fromList $ map (\(k,v) -> (T.toLower k, v)) allAlbums
+            atomically $ swapTVar albums mapAlbums
+            putStrLn "Refreshed albums"
+
+            putStrLn "Refreshing tracks"
+            allTracks <- fetch [] (\s -> do
+                               putStrLn $ "Fetching tracks offset at" ++ show s
+                               browseContentDirectory state args "A:TRACKS" "*" s 250 "*") 0
+            let !mapTracks = M.fromList $ map (\(k,v) -> (T.toLower k, v)) allTracks
+            atomically $ swapTVar tracks mapTracks
+            putStrLn "Refreshed tracks"
+
+            putStrLn "Refreshed music db"
+    let loop = do
+            pop
+            threadDelay $ 3600 * 1000000
+    async $ forever $ loop
+
+prepState args = do
+    zps <- newTVarIO []
+    artists <- newTVarIO M.empty
+    albums <- newTVarIO M.empty
+    tracks <- newTVarIO M.empty
+
+    let mdb = MusicDB {..}
+        state = State {..}
+    stateStuff zps
+    dbStuff state args
+
+    zpsI <- atomically $ readTVar zps
     let s' = do
             _ <- async $ do
                 print "Async subscribe"
-                mapM_ (\s -> sub s "192.168.1.137" 5006) stI
+                mapM_ (\s -> sub s "192.168.1.137" 5006) zpsI
             return ()
     s'
+    return state
 
-    serve st' args
+main = do
+    args <- parseArgs
+    state <- prepState args
+
+
+    putStrLn ""
+    putStrLn ""
+    putStrLn "Ready To Serve Content"
+    putStrLn ""
+    putStrLn ""
+    serve state args

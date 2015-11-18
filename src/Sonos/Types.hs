@@ -10,8 +10,18 @@ import Data.Aeson ( ToJSON(..)
 import Control.Concurrent.STM
 import qualified Data.Text as T
 import qualified Formatting as Format
+import qualified Data.Map.Strict as M
 
-type State = TVar [ZonePlayer]
+data MusicDB = MusicDB
+    { artists :: TVar (M.Map T.Text T.Text)
+    , albums :: TVar (M.Map T.Text T.Text)
+    , tracks :: TVar (M.Map T.Text T.Text)
+    }
+
+data State = State
+    { zps :: TVar [ZonePlayer]
+    , mdb :: MusicDB
+    }
 
 data CliArguments = CliArguments
     { dir :: !String

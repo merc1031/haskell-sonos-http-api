@@ -63,6 +63,7 @@ library
                        , html-entities
                        , text-format
                        , formatting
+                       , regex-pcre
   default-language:    Haskell2010
 
 executable sonos-exe
