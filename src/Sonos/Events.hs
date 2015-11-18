@@ -27,11 +27,7 @@ sub zp me port = do
 
     let opts =  defaults & header "CALLBACK" .~ [BSC.pack $ "<http://" ++ me ++ ":" ++ show port ++ "/eventSub>"]
                          & header "NT" .~  ["upnp:event"]
-    print opts
     resp <- customMethodWith "SUBSCRIBE" opts (T.unpack $ fmtLocation loc "http://" "/MediaRenderer/AVTransport/Event")
-    print $ resp ^? responseBody
-    print $ resp ^? responseStatus
-    print $ resp ^? responseHeaders
     let Just headers = fmap M.fromList $ resp ^? responseHeaders
         Just timeout = M.lookup "TIMEOUT" headers
         Just sid = M.lookup "SID" headers
@@ -72,11 +68,7 @@ renew zp sid timeoutH = do
 
     let opts =  defaults & header "SID" .~ [sid]
                          & header "TIMEOUT" .~  [timeoutH]
-    print opts
     resp <- customMethodWith "SUBSCRIBE" opts (T.unpack $ fmtLocation loc "http://" "/MediaRenderer/AVTransport/Event")
-    print $ resp ^? responseBody
-    print $ resp ^? responseStatus
-    print $ resp ^? responseHeaders
     let Just headers = fmap M.fromList $ resp ^? responseHeaders
         Just timeout = M.lookup "TIMEOUT" headers
         timeoutSeconds :: Maybe Int

@@ -44,7 +44,6 @@ discover = withSocketsDo $ do
            if L.isInfixOf "Sonos" msgR
                then do
                    close sock
-                   print msgR
                    return $ parse it "" (T.pack msgR)
                else loop
     loop
@@ -172,7 +171,6 @@ getTopology = do
             r <- get (T.unpack $ fmtStatusTopology lProto lUrl lPort)
             let Just body = r ^? responseBody
             let zps = map toZP (toZonePlayer body)
-            print zps
             return zps
 
 

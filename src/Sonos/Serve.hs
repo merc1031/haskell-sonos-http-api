@@ -135,17 +135,11 @@ routes args = do
             putStrLn $ "RoomA was: " ++ room
             ungroupRoom state args room'
         return ()
-    WS.hookRouteCustom "NOTIFY" eventSub1R $ \x -> do
-        liftIO $ print ("In event sub 1" :: String)
-        b <- WS.body
-        liftIO $ print b
-        liftIO $ print x
-        return () --WS.raw $ print data
     WS.hookRouteCustom "NOTIFY" eventSubR $ do
         liftIO $ print ("In event sub" :: String)
         b <- WS.body
-        liftIO $ print $ xmlEvent $ BSL.fromStrict b
-        return () --WS.raw $ print data
+        liftIO $ print $ ("EventSub body " ++ show (xmlEvent $ BSL.fromStrict b))
+        return ()
     WS.get playPandoraRadioLikeR $ \room like -> do
         let room' = getRoom zps' room
         liftIO $ do

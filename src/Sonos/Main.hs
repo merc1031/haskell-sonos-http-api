@@ -76,7 +76,6 @@ dbStuff state args = do
     let fetch :: [(T.Text,T.Text)] -> (Int -> IO (Int, Int, [(T.Text, T.Text)])) -> Int -> IO [(T.Text, T.Text)]
         fetch xs fn !s = do
             (nr, tm, res) <- fn s
-            putStrLn $ show $ length res
             if (s + nr) < tm
               then fetch (res ++ xs) fn (s + nr)
               else return $ res ++ xs

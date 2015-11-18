@@ -48,16 +48,6 @@ import Formatting (stext, (%), sformat)
 
 import Debug.Trace
 
-findMatchingGlob :: CliArguments
-                 -> String
-                 -> IO [[String]]
-findMatchingGlob args like = do
-    putStrLn $ "What did we hear: " ++ like
-    res <- globDirWith (matchDefault { ignoreCase = True } )
-                       [compile $ "**/*" ++ like ++ "*.flac"]
-                       (dir args)
-    putStrLn $ "Results were" ++ show (fst res)
-    return $ fst res
 
 envelope :: T.Text
          -> T.Text
@@ -300,7 +290,6 @@ queueAndPlayTrackLike state args host like = do
         addr = let l = zpLocation coord
                in urlFmt (lUrl l) (lPort l)
 
---    putStrLn ("Coord was: " ++ show  coord)
     uuid <- fetchUUID addr
     let avMessage = setAVTransportURITemplate (fmtRinconQueue uuid) ""
 
@@ -311,12 +300,6 @@ queueAndPlayTrackLike state args host like = do
 
     return ()
 
-firstTrackE args track = T.pack
-                    $ urlEncode
-                    $ replace ".flac" ".mp3"
-                    $ replace (dir args) "" track
-fmtCifs = sformat ("x-file-cifs://asgard/mp3Music" % stext)
-
 queueTrackLike :: State
                -> CliArguments
                -> ZonePlayer
@@ -325,27 +308,28 @@ queueTrackLike :: State
 queueTrackLike state args host like = do
     zps <- getZPs state
     let coord = findCoordinatorForIp (zpLocation host) zps
-    tracks <- findMatchingGlob args like
-    let firstTrack = head $ head tracks
-    putStrLn $ "First track is:" ++ firstTrack
+    tracksM <- atomically $ readTVar $ tracks $ mdb state
+    let tracks = lookupMany (T.pack $ "*" ++ like ++ "*") tracksM
+        tracks' = tracks
+        firstTrack = snd $ head tracks
+    putStrLn $ "First track is:" ++ show firstTrack
 
 
-    let soapMessage = addURIToQueueTemplate (fmtCifs $ firstTrackE args firstTrack)
+    let soapMessage = addURIToQueueTemplate firstTrack
                                             ""
                                             0
                                             0
         addr = let l = zpLocation coord
                in urlFmt (lUrl l) (lPort l)
 
---    putStrLn ("Coord was: " ++ show coord)
     Just queuedBody <- avSoapAction addr "AddURIToQueue" soapMessage
     return queuedBody
 
 queueAndPlayArtistLike :: State
-                      -> CliArguments
-                      -> ZonePlayer
-                      -> String
-                      -> IO ()
+                       -> CliArguments
+                       -> ZonePlayer
+                       -> String
+                       -> IO ()
 queueAndPlayArtistLike state args host like = do
     zps <- getZPs state
     let coord = findCoordinatorForIp (zpLocation host) zps
@@ -354,7 +338,6 @@ queueAndPlayArtistLike state args host like = do
         addr = let l = zpLocation coord
                in urlFmt (lUrl l) (lPort l)
 
---    putStrLn ("Coord was: " ++ show  coord)
     uuid <- fetchUUID addr
     let avMessage = setAVTransportURITemplate (fmtRinconQueue uuid) ""
 
@@ -463,10 +446,8 @@ playPandoraStationLike state args@(CliArguments{..}) host like = do
 
     pw <- Pandora.login email password
     st <- Pandora.searchStation pw $ T.pack like
-    print st
     st' <- Pandora.createStation pw (Pandora.artistMusicToken $ head $ Pandora.msrArtists st)
 
-    print st'
     let station = Pandora.csrStation st'
         stationId = Pandora.sStationId station
         stationName = Pandora.sStationName station
