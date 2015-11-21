@@ -16,8 +16,10 @@ import qualified Data.HashMap.Strict as H
 
 import Network.HTTP.Base (urlEncode)
 import Network.Wreq
+import Control.Monad
+import Network.HTTP.Types.Status (status200)
 import Data.Char (toLower)
-import Control.Lens                         ((^?), (.~), (&))
+import Control.Lens                         ((^?), (^?!), (.~), (&))
 import qualified Crypto.Cipher as C
 import qualified Crypto.Padding as CP
 import Crypto.Types (ByteLength)
@@ -455,10 +457,14 @@ instance J.ToJSON StationList where
               "includeStationArtUrl" J..= slIncludeStationArtUrl
         ]
 
+handle resp = do
+    when (resp ^?! responseStatus /= status200) $ do
+        putStrLn $ show (resp ^?! responseBody)
+
 getStationList pw@(PandoraWorld {..}) = do
     let target = endpoint
         slIncludeStationArtUrl = True
-    resp <- postIt pw "user.getStationList" $ StationList {..}
+    resp <- postIt' pw "user.getStationList" $ StationList {..}
 
     let Just (Right resp') = fmap J.eitherDecode $ resp ^? responseBody :: Maybe (Either String (PandoraReply StationListReply))
 
@@ -467,7 +473,7 @@ getStationList pw@(PandoraWorld {..}) = do
 searchStation pw@(PandoraWorld {..}) t = do
     let target = endpoint
         msSearchText = t
-    resp <- postIt pw "music.search" $ MusicSearch {..}
+    resp <- postIt' pw "music.search" $ MusicSearch {..}
 
     let Just (Right resp') = fmap J.eitherDecode $ resp ^? responseBody :: Maybe (Either String (PandoraReply MusicSearchReply))
 
@@ -476,11 +482,16 @@ searchStation pw@(PandoraWorld {..}) t = do
 createStation pw@(PandoraWorld {..}) t = do
     let target = endpoint
         csToken = t
-    resp <- postIt pw "station.createStation" $ CreateStation {..}
+    resp <- postIt' pw "station.createStation" $ CreateStation {..}
 
     let Just (Right resp') = fmap J.eitherDecode $ resp ^? responseBody :: Maybe (Either String (PandoraReply CreateStationReply))
 
     return $ prResult $ resp'
+
+postIt' pw method js = do
+    resp <- postIt pw method js
+    handle resp
+    return resp
 
 postIt pw@(PandoraWorld {..}) method js = do
     preq <- mkPandoraRequest pw js

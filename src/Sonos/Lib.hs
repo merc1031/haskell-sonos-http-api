@@ -18,12 +18,14 @@ import Text.Regex.PCRE
 
 import Sonos.Types
 
+import Control.Monad
 import Data.Maybe                           (fromJust, catMaybes)
 import Data.String                          (fromString, IsString)
 import Sonos.Util                           (findCoordinatorForIp)
 import Control.Monad                        (forever)
 import Control.Concurrent                   (threadDelay)
-import Control.Lens                         ((^?), (.~), (&))
+import Network.HTTP.Types.Status (status200)
+import Control.Lens                         ((^?), (^?!), (.~), (&))
 import Data.Monoid                          ((<>))
 import Data.Char                            (toLower)
 
@@ -207,15 +209,24 @@ urlFmt = sformat (stext % ":" % stext)
 hostFmt = sformat ("http://" % stext % stext)
 
 
-cdSoapAction = soapAction cdTransportAction "/MediaServer/ContentDirectory/Control"
-avSoapAction = soapAction avTransportAction "/MediaRenderer/AVTransport/Control"
+cdSoapAction = soapAction' cdTransportAction "/MediaServer/ContentDirectory/Control"
+avSoapAction = soapAction' avTransportAction "/MediaRenderer/AVTransport/Control"
+
+soapAction' t ep h a m = do
+    resp <- soapAction t ep h a m
+    handle resp
+    return resp
+
+handle resp = do
+    when (resp ^?! responseStatus /= status200) $ do
+        putStrLn $ show (resp ^?! responseBody)
 
 soapAction :: T.Text
            -> T.Text
            -> T.Text
            -> T.Text
            -> T.Text
-           -> IO (Maybe BSL.ByteString)
+           -> IO (Response BSL.ByteString)
 soapAction transport ep host action msg = do
     let opts = defaults & header "Host" .~ [TE.encodeUtf8 host]
                         & header "User-Agent" .~ ["Haskell post"]
@@ -227,7 +238,7 @@ soapAction transport ep host action msg = do
                      (T.unpack $ hostFmt host ep)
                      (TE.encodeUtf8 $ envelope msg)
 
-    return $ resp ^? responseBody
+    return $ resp
 
 getRoom :: [ZonePlayer]
         -> String
@@ -320,7 +331,8 @@ queueTrackLike state args host like = do
         addr = let l = zpLocation coord
                in urlFmt (lUrl l) (lPort l)
 
-    Just queuedBody <- avSoapAction addr "AddURIToQueue" soapMessage
+    resp <- avSoapAction addr "AddURIToQueue" soapMessage
+    let Just queuedBody = resp ^? responseBody
     return queuedBody
 
 queueAndPlayArtistLike :: State
@@ -387,17 +399,20 @@ queueArtistLike state args host like = do
         addr = let l = zpLocation coord
                in urlFmt (lUrl l) (lPort l)
 
-    mapM (\t -> avSoapAction addr "AddURIToQueue" (soapMessage $ snd t)) tracks'
+    mapM (\t -> (\r -> r ^? responseBody) <$> avSoapAction addr "AddURIToQueue" (soapMessage $ snd t)) tracks'
 
 
-didlWrapper =
+didlWrapper c =
     let dc,upnp,r,ns :: T.Text
         dc = "xmlns:dc=\"http://purl.org/dc/elements/1.1/\""
         upnp = "xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\""
         r = "xmlns:r=\"urn:schemas-rinconnetworks-com:metadata-1-0/\""
         ns = "xmlns=\"urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/\""
         stext' l r = l % stext % r
-    in sformat ("<DIDL-Lite "
+    in TL.toStrict
+     $ TLB.toLazyText
+     $ HTML.text
+     $ sformat ("<DIDL-Lite "
                     `stext'` " "
                     `stext'` " "
                     `stext'` " "
@@ -410,6 +425,7 @@ didlWrapper =
                upnp
                r
                ns
+               c
 
 didlTemplate :: T.Text
              -> T.Text
@@ -419,7 +435,7 @@ didlTemplate stId stName email =
     let stext' l r = l % stext % r
     in didlWrapper
      $ sformat
-       ("<item id=\"OOOX" `stext'` " parentID=\"0\" restricted=\"true\">\
+       ("<item id=\"OOOX" `stext'` "\" parentID=\"0\" restricted=\"true\">\
        \<dc:title>" `stext'` "</dc:title>\
        \<upnp:class>object.item.audioItem.audioBroadcast</upnp:class>\
        \<desc id=\"cdudn\" nameSpace=\"urn:schemas-rinconnetworks-com:metadata-1-0/\">\
@@ -455,7 +471,9 @@ playPandoraStationLike state args@(CliArguments{..}) host like = do
         avMessage = setAVTransportURITemplate (pandoraRadioFmt stationId)
                                               metadata
 
+    putStrLn $ show avMessage
     avSoapAction addr "SetAVTransportURI" avMessage
+    putStrLn "Time to play"
     avSoapAction addr "Play" playTemplate
 
 
@@ -489,7 +507,7 @@ browseContentDirectory state args cat filt s c sor = do
 
     resp <- cdSoapAction addr "Browse" cdMessage
 
-    let Just body = resp
+    let Just body = resp ^? responseBody
         structured = browsedContent cat body
     return structured
 
