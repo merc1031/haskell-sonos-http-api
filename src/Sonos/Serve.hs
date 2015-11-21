@@ -7,6 +7,7 @@ module Sonos.Serve where
 import Control.Monad.IO.Class
 import Sonos.Lib
 import Sonos.Types
+import Data.Monoid ((<>))
 import Sonos.Discover (getTopology)
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM
@@ -16,6 +17,7 @@ import Network.Wai.Middleware.RequestLogger
 import Data.Default
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import qualified Data.Map.Strict as M
 
 
@@ -25,31 +27,34 @@ serve state args = do
 
 
 
-playLikeR :: WS.Path '[String, String]
+playLikeR :: WS.Path '[Room, String]
 playLikeR = "like" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
 
-enqueueLikeR :: WS.Path '[String, String]
+enqueueLikeR :: WS.Path '[Room, String]
 enqueueLikeR = "like" WS.<//> "enqueue" WS.<//> WS.var WS.<//> WS.var
 
-playLikeArtistR :: WS.Path '[String, String]
+playLikeArtistR :: WS.Path '[Room, String]
 playLikeArtistR = "likeArtist" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
 
-enqueueLikeArtistR :: WS.Path '[String, String]
+enqueueLikeArtistR :: WS.Path '[Room, String]
 enqueueLikeArtistR = "likeArtist" WS.<//> "enqueue" WS.<//> WS.var WS.<//> WS.var
 
-playPandoraRadioLikeR :: WS.Path '[String, String]
+playPandoraRadioLikeR :: WS.Path '[Room, String]
 playPandoraRadioLikeR = "pandora" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
 
 browseContentDirectoryR :: WS.Path '[T.Text, T.Text, Int, Int, T.Text]
 browseContentDirectoryR = "browse" WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var
 
+browseMetaDataR :: WS.Path '[T.Text]
+browseMetaDataR = "browseMetaData" WS.<//> WS.var
+
 listR :: WS.Path '[]
 listR = "list"
 
-joinR :: WS.Path '[String, String]
+joinR :: WS.Path '[Room, Room]
 joinR = "join" WS.<//> WS.var WS.<//> WS.var
 
-unjoinR :: WS.Path '[String]
+unjoinR :: WS.Path '[Room]
 unjoinR = "unjoin" WS.<//> WS.var
 
 eventSubR :: WS.Path '[]
@@ -100,39 +105,39 @@ routes args = do
     WS.get playLikeR $ \room like -> do
         let room' = getRoom zps' room
         liftIO $ do
-            putStrLn $ "Room was: " ++ room
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
             queueAndPlayTrackLike state args room' like
         return ()
     WS.get enqueueLikeR $ \room like -> do
         let room' = getRoom zps' room
         liftIO $ do
-            putStrLn $ "Room was: " ++ room
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
             queueTrackLike state args room' like
         return ()
     WS.get playLikeArtistR $ \room like -> do
         let room' = getRoom zps' room
         liftIO $ do
-            putStrLn $ "Room was: " ++ room
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
             queueAndPlayArtistLike state args room' like
         return ()
     WS.get enqueueLikeArtistR $ \room like -> do
         let room' = getRoom zps' room
         liftIO $ do
-            putStrLn $ "Room was: " ++ room
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
             queueArtistLike state args room' like
         return ()
     WS.get joinR $ \a b -> do
         let roomA = getRoom zps' a
         let roomB = getRoom zps' b
         liftIO $ do
-            putStrLn $ "RoomA was: " ++ a
-            putStrLn $ "RoomB was: " ++ b
+            TIO.putStrLn $ "RoomA was: " <> (unRoom a)
+            TIO.putStrLn $ "RoomB was: " <> (unRoom b)
             groupRoom state args roomA roomB
         return ()
     WS.get unjoinR $ \room -> do
         let room' = getRoom zps' room
         liftIO $ do
-            putStrLn $ "RoomA was: " ++ room
+            TIO.putStrLn $ "RoomA was: " <> (unRoom room)
             ungroupRoom state args room'
         return ()
     WS.hookRouteCustom "NOTIFY" eventSubR $ do
@@ -143,12 +148,17 @@ routes args = do
     WS.get playPandoraRadioLikeR $ \room like -> do
         let room' = getRoom zps' room
         liftIO $ do
-            putStrLn $ "Room was: " ++ room
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
             playPandoraStationLike state args room' like
         return ()
     WS.get browseContentDirectoryR $ \cat filt s c so -> do
         res <- liftIO $ do
             browseContentDirectory state args cat filt s c so
+        WS.text $ T.pack $ show res
+        return ()
+    WS.get browseMetaDataR $ \cat -> do
+        res <- liftIO $ do
+            browseMetaData state args cat
         WS.text $ T.pack $ show res
         return ()
     WS.get listR $ do

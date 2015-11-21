@@ -192,5 +192,5 @@ toZP c =
         b = \case
             "true" -> True
             "false" -> False
-    in ZonePlayer (t group) (b $ t coordinator) l' (t bootseq) (uuid) (t cntn)
+    in ZonePlayer (t group) (b $ t coordinator) l' (t bootseq) (uuid) (cntn)
 

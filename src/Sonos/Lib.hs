@@ -119,6 +119,25 @@ addURIToQueueTemplate uri meta first next =
                         , ("EnqueueAsNext", T.pack $ show next)
                         ]
 
+addMultipleURIsToQueueTemplate :: [T.Text]
+                               -> [T.Text]
+                               -> T.Text
+                               -> T.Text
+                               -> Int
+                               -> Int
+                               -> T.Text
+addMultipleURIsToQueueTemplate uris metas containerUri containerMetadata first next =
+    avTransportTemplate "AddMultipleURIsToQueue"
+                        [ ("InstanceID", "0")
+                        , ("UpdateID", "0")
+                        , ("NumberOfURIs", T.pack $ show $ length uris)
+                        , ("EnqueuedURIs", T.intercalate " " uris)
+                        , ("EnqueuedURIMetaDatas", T.intercalate " " metas)
+                        , ("ContainerURI", containerUri)
+                        , ("ContainerMetaData", containerMetadata)
+                        , ("DesiredFirstTrackNumberEnqueued", T.pack $ show first)
+                        , ("EnqueueAsNext", T.pack $ show next)
+                        ]
 
 playTemplate :: T.Text
 playTemplate =
@@ -168,6 +187,13 @@ browseContentDirectoryTemplate oid flag filter sidx rqc sort =
                         , ("RequestedCount", T.pack $ show rqc)
                         , ("SortCriteria", sort)
                         ]
+
+getMetaData oid = browseContentDirectoryTemplate oid
+                                                 "BrowseMetadata"
+                                                 "*"
+                                                 0
+                                                 0
+                                                 ""
 
 wrap' :: (String, T.Text)
       -> T.Text
@@ -241,17 +267,17 @@ soapAction transport ep host action msg = do
     return $ resp
 
 getRoom :: [ZonePlayer]
-        -> String
+        -> Room
         -> ZonePlayer
 getRoom zps room =
     let rooms = M.fromList
               $ map (\zp@(ZonePlayer {..}) ->
                     let name = zpName
-                    in (fmap toLower name, zp)
+                    in (T.toLower name, zp)
                     )
                     zps
 
-        Just room' = M.lookup (fmap toLower room) rooms
+        Just room' = M.lookup (T.toLower $ unRoom room) rooms
     in room'
 
 
@@ -508,17 +534,41 @@ browseContentDirectory state args cat filt s c sor = do
     resp <- cdSoapAction addr "Browse" cdMessage
 
     let Just body = resp ^? responseBody
-        structured = browsedContent cat body
+        structured = browsedContent (BrowseDefault cat) body
     return structured
 
-lookupWrapper k = fromJust
+browseMetaData :: State
+               -> CliArguments
+               -> T.Text -- Category A:ARTIST A:ALBUM A:TRACK
+               -> IO (Int, Int, [(T.Text, T.Text)])
+browseMetaData state args cat = do
+    zps <- getZPs state
+    let coord = head zps
+        addr = let l = zpLocation coord
+               in urlFmt (lUrl l) (lPort l)
+
+
+        cdMessage = getMetaData cat
+
+    resp <- cdSoapAction addr "Browse" cdMessage
+
+    let Just body = resp ^? responseBody
+        structured = browsedContent (BrowseSpecified "container") body
+
+    putStrLn $ show body
+    return structured
+
+lookupWrapper :: BrowseContainer -> T.Text
+lookupWrapper (BrowseSpecified c) = c
+lookupWrapper (BrowseDefault k) = fromJust
                 $ M.lookup k
                 $ M.fromList [ ("A:ARTIST", "container")
                              , ("A:ALBUM", "container")
                              , ("A:TRACKS", "item")
                              ]
 
-browsedContent :: T.Text
+data BrowseContainer = BrowseDefault T.Text | BrowseSpecified T.Text
+browsedContent :: BrowseContainer
                -> BSL.ByteString
                -> (Int, Int, [(T.Text, T.Text)])
 browsedContent typeKey body =

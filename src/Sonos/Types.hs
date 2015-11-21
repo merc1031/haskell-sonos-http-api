@@ -1,6 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Sonos.Types where
 
 import Data.Aeson ( ToJSON(..)
@@ -8,9 +9,14 @@ import Data.Aeson ( ToJSON(..)
                   , (.=)
                   )
 import Control.Concurrent.STM
+import Web.PathPieces
 import qualified Data.Text as T
 import qualified Formatting as Format
 import qualified Data.Map.Strict as M
+
+newtype Room = Room { unRoom :: T.Text } deriving (PathPiece)
+
+
 
 data MusicDB = MusicDB
     { artists :: TVar (M.Map T.Text T.Text)
@@ -52,7 +58,7 @@ data ZonePlayer = ZonePlayer
     , zpLocation :: Location
     , zpBootSeq :: String
     , zpUUID :: T.Text
-    , zpName :: String
+    , zpName :: T.Text
     } deriving (Show)
 
 instance ToJSON ZonePlayer where
