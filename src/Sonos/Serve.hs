@@ -98,7 +98,8 @@ getAtomicState access = do
     a <- liftIO $ atomically $ readTVar $ access state
     return a
 
-routes :: ( MonadIO m, WS.HasSpock (WS.SpockCtxT ctx m)
+routes :: ( MonadIO m
+          , WS.HasSpock (WS.SpockCtxT ctx m)
           , WS.HasSpock (WS.ActionCtxT ctx m)
           , WS.SpockState (WS.SpockCtxT ctx m) ~ State
           , WS.SpockState (WS.ActionCtxT ctx m) ~ State)

@@ -61,6 +61,75 @@ data ZonePlayer = ZonePlayer
     , zpName :: T.Text
     } deriving (Show)
 
+data Change =
+    Change { cMasterVolume :: Int
+           , cLFVolume :: Int
+           , cRFVolume :: Int
+           , cMasterMute :: Int
+           , cLFMute :: Int
+           , cRFMute :: Int
+           , cBass :: Int
+           , cTreble :: Int
+           , cMasterLoudness :: Int
+           , cOutputFixed :: Int
+           , cHeadphonesConnected :: Int
+           , cSpeakerSize :: Int
+           , cSubGain :: Int
+           , cSubCrossover :: Int
+           , cSubPolarity :: Int
+           , cSubEnabled :: Int
+           , cSonarEnabled :: Int
+           , cSonarCalibrationAvailable :: Int
+           , cPresetNameList :: T.Text
+           } deriving Show
+
+data Transport =
+    Transport { tTransportState :: T.Text
+              , tCurrentPlayMode :: T.Text
+              , tCurrentCrossfadeMode :: Int
+              , tNumberOfTracks :: Int
+              , tCurrentTrack :: Int
+              , tCurrentSection :: Int
+              , tCurrentTrackURI :: T.Text
+              , tCurrentTrackDuration :: T.Text
+              , tCurrentTrackMetaData :: T.Text
+              , tNextTrackURI :: T.Text
+              , tNextTrackMetaData :: T.Text
+              , tEnqueuedTransportURI :: T.Text
+              , tEnqueuedTransportMetaData :: T.Text
+              , tPlaybackStorageMedium :: T.Text
+              , tAVTransportURI :: T.Text
+              , tAVTransportURIMetaData :: T.Text
+              , tNextAVTransportURI :: T.Text
+              , tNextAVTransportURIMetaData :: T.Text
+              , tCurrentTransportActions :: T.Text
+              , tCurrentValidPlayModes :: T.Text
+              , tMuseSessions :: T.Text
+              , tTransportStatus :: T.Text
+              , tSleepTimerGeneration :: Int
+              , tAlarmRunning :: Int
+              , tSnoozeRunning :: Int
+              , tRestartPending :: Int
+              , tTransportPlaySpeed :: T.Text
+              , tCurrentMediaDuration :: T.Text
+              , tRecordStorageMedium :: T.Text
+              , tPossiblePlaybackStorageMedia :: T.Text
+              , tPossibleRecordStorageMedia :: T.Text
+              , tRecordMediumWriteStatus :: T.Text
+              , tCurrentRecordQualityMode :: T.Text
+              , tPossibleRecordQualityModes :: T.Text
+              } deriving Show
+
+data Property = PropertySimple T.Text
+              | PropertyChange Change
+              | PropertyTransport Transport
+              deriving Show
+data Event =
+      Event {
+            eProperties :: M.Map T.Text (Maybe Property)
+            } deriving Show
+
+
 instance ToJSON ZonePlayer where
     toJSON ZonePlayer {..} = object [
               "group" .= zpGroup

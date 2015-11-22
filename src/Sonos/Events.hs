@@ -78,10 +78,10 @@ sub zp me port event = do
 
 
 renew :: ZonePlayer
-    -> BS.ByteString
-    -> BS.ByteString
-    -> T.Text
-    -> IO (Maybe Int)
+      -> BS.ByteString
+      -> BS.ByteString
+      -> T.Text
+      -> IO (Maybe Int)
 renew zp sid timeoutH event = do
     print $ "Renewing to " ++ show zp
     let loc = zpLocation zp
@@ -98,75 +98,9 @@ renew zp sid timeoutH event = do
 
     return timeoutSeconds
 
-data Change =
-    Change { cMasterVolume :: Int
-           , cLFVolume :: Int
-           , cRFVolume :: Int
-           , cMasterMute :: Int
-           , cLFMute :: Int
-           , cRFMute :: Int
-           , cBass :: Int
-           , cTreble :: Int
-           , cMasterLoudness :: Int
-           , cOutputFixed :: Int
-           , cHeadphonesConnected :: Int
-           , cSpeakerSize :: Int
-           , cSubGain :: Int
-           , cSubCrossover :: Int
-           , cSubPolarity :: Int
-           , cSubEnabled :: Int
-           , cSonarEnabled :: Int
-           , cSonarCalibrationAvailable :: Int
-           , cPresetNameList :: T.Text
-           } deriving Show
-
-data Transport =
-    Transport { tTransportState :: T.Text
-              , tCurrentPlayMode :: T.Text
-              , tCurrentCrossfadeMode :: Int
-              , tNumberOfTracks :: Int
-              , tCurrentTrack :: Int
-              , tCurrentSection :: Int
-              , tCurrentTrackURI :: T.Text
-              , tCurrentTrackDuration :: T.Text
-              , tCurrentTrackMetaData :: T.Text
-              , tNextTrackURI :: T.Text
-              , tNextTrackMetaData :: T.Text
-              , tEnqueuedTransportURI :: T.Text
-              , tEnqueuedTransportMetaData :: T.Text
-              , tPlaybackStorageMedium :: T.Text
-              , tAVTransportURI :: T.Text
-              , tAVTransportURIMetaData :: T.Text
-              , tNextAVTransportURI :: T.Text
-              , tNextAVTransportURIMetaData :: T.Text
-              , tCurrentTransportActions :: T.Text
-              , tCurrentValidPlayModes :: T.Text
-              , tMuseSessions :: T.Text
-              , tTransportStatus :: T.Text
-              , tSleepTimerGeneration :: Int
-              , tAlarmRunning :: Int
-              , tSnoozeRunning :: Int
-              , tRestartPending :: Int
-              , tTransportPlaySpeed :: T.Text
-              , tCurrentMediaDuration :: T.Text
-              , tRecordStorageMedium :: T.Text
-              , tPossiblePlaybackStorageMedia :: T.Text
-              , tPossibleRecordStorageMedia :: T.Text
-              , tRecordMediumWriteStatus :: T.Text
-              , tCurrentRecordQualityMode :: T.Text
-              , tPossibleRecordQualityModes :: T.Text
-              } deriving Show
-
-data Property = PropertySimple T.Text
-              | PropertyChange Change
-              | PropertyTransport Transport
-              deriving Show
-data Event =
-      Event {
-            eProperties :: M.Map T.Text (Maybe Property)
-            } deriving Show
-
-mkProperty :: Cursor -> Maybe T.Text -> Maybe Property
+mkProperty :: Cursor
+           -> Maybe T.Text
+           -> Maybe Property
 mkProperty cursor Nothing = Nothing
 mkProperty cursor (Just ns)
     | ns == "urn:schemas-upnp-org:metadata-1-0/RCS/" = Just $ propertyChange cursor
@@ -258,7 +192,8 @@ handleEvent req body = do
     return event
 
 
-eventToXML :: BS.ByteString -> Event
+eventToXML :: BS.ByteString
+           -> Event
 eventToXML body =
     let cursor = fromDocument $ parseLBS_ def $ BSL.fromStrict $ traceShowId body
         pset = cursor $// laxElement "property"

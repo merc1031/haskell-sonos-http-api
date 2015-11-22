@@ -48,6 +48,8 @@ import Formatting (stext, (%), sformat)
 
 import Debug.Trace
 
+data BrowseContainer = BrowseDefault T.Text
+                     | BrowseSpecified T.Text
 
 envelope :: T.Text
          -> T.Text
@@ -549,7 +551,6 @@ browseContentDirectory :: State
                        -> Int -- Count
                        -> T.Text --sort criteria
                        -> IO (Int, Int, [(T.Text, T.Text)])
-
 browseContentDirectory state args cat filt s c sor = do
     zps <- getZPs state
     let coord = head zps
@@ -591,7 +592,8 @@ browseMetaData state args cat = do
     putStrLn $ show body
     return structured
 
-lookupWrapper :: BrowseContainer -> T.Text
+lookupWrapper :: BrowseContainer
+              -> T.Text
 lookupWrapper (BrowseSpecified c) = c
 lookupWrapper (BrowseDefault k) = fromJust
                 $ M.lookup k
@@ -600,7 +602,6 @@ lookupWrapper (BrowseDefault k) = fromJust
                              , ("A:TRACKS", "item")
                              ]
 
-data BrowseContainer = BrowseDefault T.Text | BrowseSpecified T.Text
 browsedContent :: BrowseContainer
                -> BSL.ByteString
                -> (Int, Int, [(T.Text, T.Text)])
