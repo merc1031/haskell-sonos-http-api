@@ -419,6 +419,35 @@ previousTrack state args host = do
     return ()
 
 
+getState :: State
+         -> CliArguments
+         -> ZonePlayer
+         -> IO ReplyState
+getState state args host = do
+    zps <- getZPs state
+    let coord = findCoordinatorForIp (zpLocation host) zps
+        speakersData = speakers state
+        Just rsStateV = M.lookup (zpUUID host) speakersData
+        Just rsCoordinatorStateV = M.lookup (zpUUID coord) speakersData
+
+    putStrLn $ "Geting state for " ++ show host
+    rsState <- atomically $ readTVar rsStateV
+    rsCoordinatorState <- atomically $ readTVar rsCoordinatorStateV
+
+    let rsCurrentTrack = ssCurrentTrack rsCoordinatorState
+        rsNextTrack = ssNextTrack rsCoordinatorState
+        rsVolume = ssVolume rsState
+        rsMute = ssMute rsState
+        rsTrackNo = ssTrackNo rsCoordinatorState
+        rsElapsedTime = ssElapsedTime rsCoordinatorState
+        rsElapsedTimeFormatted = ssElapsedTimeFormatted rsCoordinatorState
+        rsZoneState = ssPlayerState rsCoordinatorState
+        rsPlayerState = ssPlayerState rsState
+        rsZonePlayMode = ssCurrentPlayMode rsCoordinatorState
+
+    return $ ReplyState {..}
+
+
 getZPs = atomically . readTVar . zps
 
 hadGlobs :: T.Text

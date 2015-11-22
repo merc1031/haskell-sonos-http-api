@@ -118,6 +118,10 @@ routes args = do
     WS.get previousTrackR $ \room -> do
         let room' = getRoom zps' room
         liftIO $ previousTrack state args room'
+    WS.get stateR $ \room -> do
+        let room' = getRoom zps' room
+        res <- liftIO $ getState state args room'
+        WS.json res
     WS.get playLikeR $ \room like -> do
         let room' = getRoom zps' room
         liftIO $ do
@@ -161,7 +165,7 @@ routes args = do
     WS.hookRouteCustom "NOTIFY" eventSubR $ do
         b <- WS.body
         req <- WS.request
-        liftIO $ handleEvent req b
+        liftIO $ handleEvent state req b
 
         return ()
 

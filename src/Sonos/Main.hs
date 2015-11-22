@@ -27,9 +27,10 @@ import Options.Applicative     ( Parser
 import Data.Monoid ((<>))
 import Sonos.Discover (getTopology)
 import Sonos.Serve (serve)
-import Sonos.Types (CliArguments(..), State(..), MusicDB(..))
+import Sonos.Types (CliArguments(..), State(..), MusicDB(..), ZonePlayer(..))
 import Sonos.Events (subAll)
 import Sonos.Lib (browseContentDirectory)
+import Data.Default
 import qualified Data.Text as T
 import qualified Data.Map.Strict as M
 
@@ -117,12 +118,16 @@ prepState args = do
     albums <- newTVarIO M.empty
     tracks <- newTVarIO M.empty
 
+    stateStuff zps
+    zpsI <- atomically $ readTVar zps
+    speakers <- M.fromList <$> mapM (\zp -> do
+            tvar <- newTVarIO def
+            return (zpUUID zp, tvar)
+         ) zpsI
     let mdb = MusicDB {..}
         state = State {..}
-    stateStuff zps
     dbStuff state args
 
-    zpsI <- atomically $ readTVar zps
     let s' = do
             _ <- async $ do
                 print "Async subscribe"
