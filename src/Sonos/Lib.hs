@@ -105,6 +105,14 @@ avTransportNS = sformat ("xmlns:u=\"" % stext % "\"") avTransportAction
 cdTransportNS :: T.Text
 cdTransportNS = sformat ("xmlns:u=\"" % stext % "\"") cdTransportAction
 
+nextTrackTemplate =
+    avTransportTemplate "Next"
+                        [ ("InstanceID", "0")]
+
+previousTrackTemplate =
+    avTransportTemplate "Previous"
+                        [ ("InstanceID", "0")]
+
 addURIToQueueTemplate :: T.Text
                       -> T.Text
                       -> Int
@@ -383,6 +391,31 @@ queueAndPlayArtistLike state args host like = do
 
 
     return ()
+
+nextTrack :: State
+          -> CliArguments
+          -> ZonePlayer
+          -> IO ()
+nextTrack state args host = do
+    zps <- getZPs state
+    let coord = findCoordinatorForIp (zpLocation host) zps
+        addr = let l = zpLocation coord
+               in urlFmt (lUrl l) (lPort l)
+    avSoapAction addr "Next" nextTrackTemplate
+    return ()
+
+previousTrack :: State
+              -> CliArguments
+              -> ZonePlayer
+              -> IO ()
+previousTrack state args host = do
+    zps <- getZPs state
+    let coord = findCoordinatorForIp (zpLocation host) zps
+        addr = let l = zpLocation coord
+               in urlFmt (lUrl l) (lPort l)
+    avSoapAction addr "Previous" previousTrackTemplate
+    return ()
+
 
 getZPs = atomically . readTVar . zps
 

@@ -53,8 +53,8 @@ browseMetaDataR = "browseMetaData" WS.<//> WS.var
 nextTrackR :: WS.Path '[Room]
 nextTrackR = "next" WS.<//> WS.var
 
-prevTrackR :: WS.Path '[Room]
-prevTrackR = "prev" WS.<//> WS.var
+previousTrackR :: WS.Path '[Room]
+previousTrackR = "previous" WS.<//> WS.var
 
 stateR :: WS.Path '[Room]
 stateR = "state" WS.<//> WS.var
@@ -110,6 +110,13 @@ routes args = do
 
     reqLogger <- liftIO $ mkRequestLogger def
     WS.middleware $ reqLogger
+
+    WS.get nextTrackR $ \room -> do
+        let room' = getRoom zps' room
+        liftIO $ nextTrack state args room'
+    WS.get previousTrackR $ \room -> do
+        let room' = getRoom zps' room
+        liftIO $ previousTrack state args room'
     WS.get playLikeR $ \room like -> do
         let room' = getRoom zps' room
         liftIO $ do
@@ -134,6 +141,7 @@ routes args = do
             TIO.putStrLn $ "Room was: " <> (unRoom room)
             queueArtistLike state args room' like
         return ()
+
     WS.get joinR $ \a b -> do
         let roomA = getRoom zps' a
         let roomB = getRoom zps' b
@@ -148,18 +156,21 @@ routes args = do
             TIO.putStrLn $ "RoomA was: " <> (unRoom room)
             ungroupRoom state args room'
         return ()
+
     WS.hookRouteCustom "NOTIFY" eventSubR $ do
         b <- WS.body
         req <- WS.request
         liftIO $ handleEvent req b
 
         return ()
+
     WS.get playPandoraRadioLikeR $ \room like -> do
         let room' = getRoom zps' room
         liftIO $ do
             TIO.putStrLn $ "Room was: " <> (unRoom room)
             playPandoraStationLike state args room' like
         return ()
+
     WS.get browseContentDirectoryR $ \cat filt s c so -> do
         res <- liftIO $ do
             browseContentDirectory state args cat filt s c so
@@ -170,8 +181,10 @@ routes args = do
             browseMetaData state args cat
         WS.text $ T.pack $ show res
         return ()
+
     WS.get listR $ do
         WS.json zps'
+
     WS.get inspectArtistsR $ \s c -> do
         adb <- getAtomicState (artists . mdb)
         let res = take c $ drop s $ M.toList adb
