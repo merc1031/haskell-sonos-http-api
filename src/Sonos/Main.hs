@@ -28,7 +28,7 @@ import Data.Monoid ((<>))
 import Sonos.Discover (getTopology)
 import Sonos.Serve (serve)
 import Sonos.Types (CliArguments(..), State(..), MusicDB(..))
-import Sonos.Events (sub)
+import Sonos.Events (subAll)
 import Sonos.Lib (browseContentDirectory)
 import qualified Data.Text as T
 import qualified Data.Map.Strict as M
@@ -126,7 +126,7 @@ prepState args = do
     let s' = do
             _ <- async $ do
                 print "Async subscribe"
-                mapM_ (\s -> sub s "192.168.1.137" 5006) zpsI
+                mapM_ (\s -> subAll s "192.168.1.137" 5006) zpsI
             return ()
     s'
     return state

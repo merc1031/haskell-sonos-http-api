@@ -7,6 +7,8 @@ module Sonos.Serve where
 import Control.Monad.IO.Class
 import Sonos.Lib
 import Sonos.Types
+import Sonos.Events (handleEvent)
+import Network.Wai
 import Data.Monoid ((<>))
 import Sonos.Discover (getTopology)
 import Control.Concurrent (threadDelay)
@@ -48,6 +50,15 @@ browseContentDirectoryR = "browse" WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var 
 browseMetaDataR :: WS.Path '[T.Text]
 browseMetaDataR = "browseMetaData" WS.<//> WS.var
 
+nextTrackR :: WS.Path '[Room]
+nextTrackR = "next" WS.<//> WS.var
+
+prevTrackR :: WS.Path '[Room]
+prevTrackR = "prev" WS.<//> WS.var
+
+stateR :: WS.Path '[Room]
+stateR = "state" WS.<//> WS.var
+
 listR :: WS.Path '[]
 listR = "list"
 
@@ -59,9 +70,6 @@ unjoinR = "unjoin" WS.<//> WS.var
 
 eventSubR :: WS.Path '[]
 eventSubR = "eventSub"
-
-eventSub1R :: WS.Path '[String]
-eventSub1R = "eventSub" WS.<//> WS.var
 
 inspectArtistsR :: WS.Path '[Int, Int]
 inspectArtistsR = "inspect" WS.<//> "artists" WS.<//> WS.var WS.<//> WS.var
@@ -141,9 +149,10 @@ routes args = do
             ungroupRoom state args room'
         return ()
     WS.hookRouteCustom "NOTIFY" eventSubR $ do
-        liftIO $ print ("In event sub" :: String)
         b <- WS.body
-        liftIO $ print $ ("EventSub body " ++ show (xmlEvent $ BSL.fromStrict b))
+        req <- WS.request
+        liftIO $ handleEvent req b
+
         return ()
     WS.get playPandoraRadioLikeR $ \room like -> do
         let room' = getRoom zps' room

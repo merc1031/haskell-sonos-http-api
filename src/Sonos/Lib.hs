@@ -627,6 +627,3 @@ getTrackNum body =
                                        &// content
 
 
-xmlEvent body =
-    let cursor = fromDocument $ parseLBS_ def body
-    in cursor

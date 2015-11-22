@@ -60,6 +60,8 @@ library
                        , regex-pcre
                        , http-types
                        , path-pieces
+                       , wai
+                       , safe
   default-language:    Haskell2010
 
 executable sonos-exe
