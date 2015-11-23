@@ -32,3 +32,22 @@ findCoordinatorForIp loc sds =
         me = head $ M.elems c
     in me
 
+findCoordinators :: [ZonePlayer]
+                 -> [ZonePlayer]
+findCoordinators sds =
+    let m = M.fromListWithKey findCoord $ map (\zp@(ZonePlayer {..}) ->
+                                                    (zpGroup, zp)
+                                              ) sds
+        findCoord :: String
+                  -> ZonePlayer
+                  -> ZonePlayer
+                  -> ZonePlayer
+        findCoord k l r =
+            let lCoord = zpCoordinator l
+                rCoord = zpCoordinator r
+            in case (lCoord, rCoord) of
+              (False, False) -> l
+              (True, False) -> l
+              (False, True) -> r
+              _ -> error "cannot have 2 coordinators"
+    in M.elems m

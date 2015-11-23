@@ -21,7 +21,9 @@ import Sonos.Types
 import Control.Monad
 import Data.Maybe                           (fromJust, catMaybes)
 import Data.String                          (fromString, IsString)
-import Sonos.Util                           (findCoordinatorForIp)
+import Sonos.Util                           ( findCoordinatorForIp
+                                            , findCoordinators
+                                            )
 import Control.Monad                        (forever)
 import Control.Concurrent                   (threadDelay)
 import Network.HTTP.Types.Status (status200)
@@ -157,6 +159,11 @@ playTemplate =
                         [ ("InstanceID", "0")
                         , ("Speed", "1")
                         ]
+
+pauseTemplate :: T.Text
+pauseTemplate =
+    avTransportTemplate "Pause"
+                        [ ("InstanceID", "0")]
 
 setAVTransportURITemplate :: T.Text
                           -> T.Text
@@ -323,6 +330,57 @@ ungroupRoom state args room = do
 
 
 fmtRinconQueue = sformat ("x-rincon-queue:" % stext % "#0")
+
+play :: State
+     -> CliArguments
+     -> ZonePlayer
+     -> IO ()
+play state args host = do
+    zps <- getZPs state
+    let coord = findCoordinatorForIp (zpLocation host) zps
+        addr = let l = zpLocation coord
+               in urlFmt (lUrl l) (lPort l)
+
+    avSoapAction addr "Play" playTemplate
+    return ()
+
+pause :: State
+     -> CliArguments
+     -> ZonePlayer
+     -> IO ()
+pause state args host = do
+    zps <- getZPs state
+    let coord = findCoordinatorForIp (zpLocation host) zps
+        addr = let l = zpLocation coord
+               in urlFmt (lUrl l) (lPort l)
+
+    avSoapAction addr "Pause" pauseTemplate
+    return ()
+
+playall :: State
+        -> CliArguments
+        -> IO ()
+playall state args = do
+    zps <- getZPs state
+    let coords = findCoordinators zps
+        toAddr zp = let l = zpLocation zp
+               in urlFmt (lUrl l) (lPort l)
+
+    mapM_ (\zp -> avSoapAction (toAddr zp) "Play" playTemplate) coords
+    return ()
+
+pauseall :: State
+         -> CliArguments
+         -> IO ()
+pauseall state args = do
+    zps <- getZPs state
+    let coords = findCoordinators zps
+        toAddr zp = let l = zpLocation zp
+               in urlFmt (lUrl l) (lPort l)
+
+    mapM_ (\zp -> avSoapAction (toAddr zp) "Pause" pauseTemplate) coords
+    return ()
+
 
 queueAndPlayTrackLike :: State
                       -> CliArguments

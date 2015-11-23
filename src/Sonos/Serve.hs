@@ -29,6 +29,19 @@ serve state args = do
 
 
 
+playR :: WS.Path '[Room]
+playR = "play" WS.<//> WS.var
+
+pauseR :: WS.Path '[Room]
+pauseR = "pause" WS.<//> WS.var
+
+playallR :: WS.Path '[]
+playallR = "playall"
+
+pauseallR :: WS.Path '[]
+pauseallR = "pauseall"
+
+
 
 playLikeR :: WS.Path '[Room, String]
 playLikeR = "like" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
@@ -149,6 +162,26 @@ routes args = do
         liftIO $ do
             TIO.putStrLn $ "Room was: " <> (unRoom room)
             queueArtistLike state args room' like
+        return ()
+    WS.get playR $ \room -> do
+        let room' = getRoom zps' room
+        liftIO $ do
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
+            play state args room'
+        return ()
+    WS.get pauseR $ \room -> do
+        let room' = getRoom zps' room
+        liftIO $ do
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
+            pause state args room'
+        return ()
+    WS.get playallR $ do
+        liftIO $
+            playall state args
+        return ()
+    WS.get pauseallR $ do
+        liftIO $
+            pauseall state args
         return ()
 
     WS.get joinR $ \a b -> do
