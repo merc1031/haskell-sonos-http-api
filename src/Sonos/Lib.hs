@@ -105,19 +105,51 @@ avTransportAction = "urn:schemas-upnp-org:service:AVTransport:1"
 cdTransportAction :: T.Text
 cdTransportAction = "urn:schemas-upnp-org:service:ContentDirectory:1"
 
+rcTransportAction :: T.Text
+rcTransportAction = "urn:schemas-upnp-org:service:RenderingControl:1"
+
+grcTransportAction :: T.Text
+grcTransportAction = "urn:schemas-upnp-org:service:GroupRenderingControl:1"
+
 avTransportNS :: T.Text
 avTransportNS = sformat ("xmlns:u=\"" % stext % "\"") avTransportAction
 
 cdTransportNS :: T.Text
 cdTransportNS = sformat ("xmlns:u=\"" % stext % "\"") cdTransportAction
 
+rcTransportNS :: T.Text
+rcTransportNS = sformat ("xmlns:u=\"" % stext % "\"") rcTransportAction
+
+grcTransportNS :: T.Text
+grcTransportNS = sformat ("xmlns:u=\"" % stext % "\"") grcTransportAction
+
+nextTrackTemplate :: T.Text
 nextTrackTemplate =
     avTransportTemplate "Next"
                         [ ("InstanceID", "0")]
 
+previousTrackTemplate :: T.Text
 previousTrackTemplate =
     avTransportTemplate "Previous"
                         [ ("InstanceID", "0")]
+
+volumeTemplate :: Int
+               -> T.Text
+volumeTemplate volume =
+    rcTransportTemplate "SetVolume"
+                        [ ("InstanceID", "0")
+                        , ("Channel", "Master")
+                        , ("DesiredVolume", T.pack $ show volume)
+                        ]
+
+groupVolumeTemplate :: Int
+                    -> T.Text
+groupVolumeTemplate volume =
+    grcTransportTemplate "SetGroupVolume"
+                        [ ("InstanceID", "0")
+                        , ("Channel", "Master")
+                        , ("DesiredVolume", T.pack $ show volume)
+                        ]
 
 addURIToQueueTemplate :: T.Text
                       -> T.Text
@@ -230,6 +262,17 @@ cdTransportTemplate :: T.Text
                     -> T.Text
 cdTransportTemplate action md = transportTemplate action cdTransportNS md
 
+rcTransportTemplate :: T.Text
+                    -> [(String, T.Text)]
+                    -> T.Text
+rcTransportTemplate action md = transportTemplate action rcTransportNS md
+
+grcTransportTemplate :: T.Text
+                     -> [(String, T.Text)]
+                     -> T.Text
+grcTransportTemplate action md = transportTemplate action grcTransportNS md
+
+
 transportTemplate :: T.Text
                   -> T.Text
                   -> [(String, T.Text)]
@@ -256,6 +299,8 @@ hostFmt = sformat ("http://" % stext % stext)
 
 cdSoapAction = soapAction' cdTransportAction "/MediaServer/ContentDirectory/Control"
 avSoapAction = soapAction' avTransportAction "/MediaRenderer/AVTransport/Control"
+rcSoapAction = soapAction' rcTransportAction "/MediaRenderer/RenderingControl/Control"
+grcSoapAction = soapAction' grcTransportAction "/MediaRenderer/GroupRenderingControl/Control"
 
 soapAction' t ep h a m = do
     resp <- soapAction t ep h a m
@@ -331,6 +376,51 @@ ungroupRoom state args room = do
 
 fmtRinconQueue = sformat ("x-rincon-queue:" % stext % "#0")
 
+getSpeakerState state zp = do
+    let speakersData = speakers state
+        Just rsStateV = M.lookup (zpUUID zp) speakersData
+
+    rsState <- atomically $ readTVar rsStateV
+    return rsState
+
+modVolume (SpeakerState {..}) op val = case op of
+    E -> val
+    Pl -> ssVolume + val
+    Mi -> ssVolume - val
+
+volume :: State
+       -> CliArguments
+       -> ZonePlayer
+       -> Op
+       -> Int
+       -> IO ()
+volume state args host op value = do
+    let addr = let l = zpLocation host
+               in urlFmt (lUrl l) (lPort l)
+    ss <- getSpeakerState state host
+
+    let newVol = modVolume ss op value
+    rcSoapAction addr "SetVolume" (volumeTemplate newVol)
+    return ()
+
+groupVolume :: State
+            -> CliArguments
+            -> ZonePlayer
+            -> Op
+            -> Int
+            -> IO ()
+groupVolume state args host op value = do
+    zps <- getZPs state
+    let coord = findCoordinatorForIp (zpLocation host) zps
+        addr = let l = zpLocation coord
+               in urlFmt (lUrl l) (lPort l)
+    ss <- getSpeakerState state coord
+
+    let newVol = modVolume ss op value
+
+    grcSoapAction addr "SetGroupVolume" (groupVolumeTemplate newVol)
+    return ()
+
 play :: State
      -> CliArguments
      -> ZonePlayer
@@ -345,9 +435,9 @@ play state args host = do
     return ()
 
 pause :: State
-     -> CliArguments
-     -> ZonePlayer
-     -> IO ()
+      -> CliArguments
+      -> ZonePlayer
+      -> IO ()
 pause state args host = do
     zps <- getZPs state
     let coord = findCoordinatorForIp (zpLocation host) zps

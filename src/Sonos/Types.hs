@@ -16,8 +16,17 @@ import qualified Formatting as Format
 import qualified Data.Map.Strict as M
 
 newtype Room = Room { unRoom :: T.Text } deriving (PathPiece)
+data Op = Pl | Mi | E
 
-
+instance PathPiece Op where
+    fromPathPiece text
+        | text == "+" = Just Pl
+        | text == "-" = Just Mi
+        | text == "=" = Just E
+        | otherwise = Nothing
+    toPathPiece Pl = "+"
+    toPathPiece Mi = "-"
+    toPathPiece E = "="
 
 data MusicDB = MusicDB
     { artists :: TVar (M.Map T.Text T.Text)

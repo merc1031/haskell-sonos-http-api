@@ -41,6 +41,11 @@ playallR = "playall"
 pauseallR :: WS.Path '[]
 pauseallR = "pauseall"
 
+volumeR :: WS.Path '[Room, Op, Int]
+volumeR = "volume" WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var
+
+groupVolumeR :: WS.Path '[Room, Op, Int]
+groupVolumeR = "groupVolume" WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var
 
 
 playLikeR :: WS.Path '[Room, String]
@@ -182,6 +187,18 @@ routes args = do
     WS.get pauseallR $ do
         liftIO $
             pauseall state args
+        return ()
+    WS.get volumeR $ \room op vol -> do
+        let room' = getRoom zps' room
+        liftIO $ do
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
+            volume state args room' op vol
+        return ()
+    WS.get groupVolumeR $ \room op vol -> do
+        let room' = getRoom zps' room
+        liftIO $ do
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
+            groupVolume state args room' op vol
         return ()
 
     WS.get joinR $ \a b -> do
