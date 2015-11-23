@@ -35,6 +35,7 @@ data CliArguments = CliArguments
     { dir :: !String
     , email :: !T.Text
     , password :: !T.Text
+    , songzaId :: !T.Text
     }
 
 data TrackState = TrackState

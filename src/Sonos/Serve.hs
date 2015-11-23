@@ -44,6 +44,9 @@ enqueueLikeArtistR = "likeArtist" WS.<//> "enqueue" WS.<//> WS.var WS.<//> WS.va
 playPandoraRadioLikeR :: WS.Path '[Room, String]
 playPandoraRadioLikeR = "pandora" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
 
+playSongzaRadioLikeR :: WS.Path '[Room, String]
+playSongzaRadioLikeR = "songza" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
+
 browseContentDirectoryR :: WS.Path '[T.Text, T.Text, Int, Int, T.Text]
 browseContentDirectoryR = "browse" WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var
 
@@ -174,6 +177,13 @@ routes args = do
         liftIO $ do
             TIO.putStrLn $ "Room was: " <> (unRoom room)
             playPandoraStationLike state args room' like
+        return ()
+
+    WS.get playSongzaRadioLikeR $ \room like -> do
+        let room' = getRoom zps' room
+        liftIO $ do
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
+            playSongzaStationLike state args room' like
         return ()
 
     WS.get browseContentDirectoryR $ \cat filt s c so -> do

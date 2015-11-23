@@ -56,7 +56,13 @@ parseCliArgs =
             <> short 'p'
             <> help "password for pandora"
             )
-    in CliArguments <$> directory <*> email <*> password
+        songzaId :: Parser T.Text
+        songzaId = fmap T.pack $ strOption
+            ( long "songza-id"
+            <> short 's'
+            <> help "user id for songza"
+            )
+    in CliArguments <$> directory <*> email <*> password <*> songzaId
 
 
 stateStuff topoV = do

@@ -40,6 +40,7 @@ import qualified Data.Text.Encoding         as TE
 import qualified Data.Text.Lazy             as TL
 import qualified Data.Text.Lazy.Builder     as TLB
 import qualified Sonos.Plugins.Pandora as Pandora
+import qualified Sonos.Plugins.Songza as Songza
 import qualified HTMLEntities.Builder as HTML
 import qualified HTMLEntities.Decoder as HTML
 import qualified Data.Text.Format as Fmt
@@ -571,6 +572,37 @@ playPandoraStationLike state args@(CliArguments{..}) host like = do
 
 pandoraRadioFmt = sformat ("pndrradio:" % stext % "?sn=6")
 
+
+playSongzaStationLike :: State
+                       -> CliArguments
+                       -> ZonePlayer
+                       -> String
+                       -> IO ()
+playSongzaStationLike state args@(CliArguments{..}) host like = do
+    zps <- getZPs state
+    let coord = findCoordinatorForIp (zpLocation host) zps
+        addr = let l = zpLocation coord
+               in urlFmt (lUrl l) (lPort l)
+
+    st <- Songza.getStationList $ T.pack like
+    let firstSt = head st
+
+    let stationId = Songza.slrId firstSt
+        stationName = Songza.slrName firstSt
+        metadata = Songza.mkMetaData stationId
+                                     "0" -- Not sure how to discover the situationid taht goes here
+                                     stationName
+                                     songzaId
+        avMessage = setAVTransportURITemplate (Songza.mkUri stationId)
+                                              metadata
+
+    putStrLn $ show avMessage
+    avSoapAction addr "SetAVTransportURI" avMessage
+    putStrLn "Time to play"
+    avSoapAction addr "Play" playTemplate
+
+
+    return ()
 
 browseContentDirectory :: State
                        -> CliArguments
