@@ -30,10 +30,33 @@ instance PathPiece Op where
     toPathPiece Mi = "-"
     toPathPiece E = "="
 
+data Filter = FAll | FNone
+    deriving Show
+
+data Sort = SAll | SNone
+    deriving Show
+
+instance PathPiece Filter where
+    fromPathPiece text
+        | text == "*" = Just FAll
+        | text == "_" = Just FNone
+        | otherwise = Nothing
+    toPathPiece FAll = "*"
+    toPathPiece FNone = "_"
+
+instance PathPiece Sort where
+    fromPathPiece text
+        | text == "*" = Just SAll
+        | text == "_" = Just SNone
+        | otherwise = Nothing
+    toPathPiece SAll = "*"
+    toPathPiece SNone = "_"
+
+
 data MusicDB = MusicDB
-    { artists :: TVar (M.Map T.Text T.Text)
-    , albums :: TVar (M.Map T.Text T.Text)
-    , tracks :: TVar (M.Map T.Text T.Text)
+    { artists :: TVar (M.Map T.Text (T.Text, T.Text))
+    , albums :: TVar (M.Map T.Text (T.Text, T.Text))
+    , tracks :: TVar (M.Map T.Text (T.Text, T.Text))
     }
 
 data State = State

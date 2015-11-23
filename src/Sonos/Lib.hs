@@ -7,6 +7,7 @@
 {-# LANGUAGE TupleSections #-}
 module Sonos.Lib where
 
+import Control.Exception (catch, SomeException)
 import Network.Wreq
 import Data.String.Utils
 import Text.XML
@@ -17,6 +18,7 @@ import Sonos.Types
 import Control.Monad
 import Text.EditDistance
 import Debug.Trace
+import Web.PathPieces
 
 import Network.HTTP.Base                    (urlEncode)
 import Data.Maybe                           ( fromJust
@@ -468,12 +470,9 @@ pause state args host = do
                in urlFmt (lUrl l) (lPort l)
 
 
-    print coord
     ss <- getSpeakerState state coord
-    print ss
-    when (ssPlayerState ss == "PLAYING") $ do
-        r <- avSoapAction' addr pauseTemplate
-        print r
+    when (ssPlayerState ss == "PLAYING") $
+        void $ avSoapAction' addr pauseTemplate
     return ()
 
 playall :: State
@@ -505,55 +504,92 @@ pauseall state args = do
             void $ avSoapAction (toAddr zp) pauseTemplate) coords
     return ()
 
-
-queueAndPlayTrackLike :: State
-                      -> CliArguments
-                      -> ZonePlayer
-                      -> String
-                      -> IO ()
-queueAndPlayTrackLike state args host like = do
+playFavorite :: State
+             -> CliArguments
+             -> ZonePlayer
+             -> String
+             -> IO ()
+playFavorite state args host like = do
     zps <- getZPs state
     let coord = findCoordinatorForIp (zpLocation host) zps
-    queuedBody <- queueTrackLike state args host like
-    let trackNo = getTrackNum queuedBody
         addr = let l = zpLocation coord
                in urlFmt (lUrl l) (lPort l)
+    (_,_,cd) <- browseContentDirectory state
+                                       args
+                                       "FV:2"
+                                       FNone
+                                       0
+                                       1000
+                                       SNone
+    let m = M.fromList cd
+        (d, md) = lookupDistance (T.pack like) m
 
-    uuid <- fetchUUID addr
-    let avMessage = setAVTransportURITemplate (fmtRinconQueue uuid) ""
+--    let avMessage = setAVTransportURITemplate d (TL.toStrict $ TLB.toLazyText $ HTML.text md)
+    let avMessage = setAVTransportURITemplate (TL.toStrict $ TLB.toLazyText $ HTML.text d) (TL.toStrict $ TLB.toLazyText $ HTML.text md)
 
-    avSoapAction addr avMessage
-    avSoapAction addr (seekTrackTemplate trackNo)
-    avSoapAction addr playTemplate
+    print $ avMessage
+    r <- avSoapAction addr avMessage `catch` (\x -> (putStrLn $ "add " ++ show (x :: SomeException)) >> return undefined)
+    r' <- avSoapAction addr playTemplate `catch` (\x -> (putStrLn $ "play " ++ show (x :: SomeException)) >> return undefined)
+    
+    putStrLn $ ""
+    putStrLn $ ""
+    putStrLn $ "***Response" ++ show r
+    putStrLn $ ""
+    putStrLn $ ""
+    putStrLn $ "***Response" ++ show r'
 
 
     return ()
 
-queueTrackLike :: State
-               -> CliArguments
-               -> ZonePlayer
-               -> String
-               -> IO BSL.ByteString
-queueTrackLike state args host like = do
-    zps <- getZPs state
-    let coord = findCoordinatorForIp (zpLocation host) zps
-    tracksM <- atomically $ readTVar $ tracks $ mdb state
-    let tracks = lookupMany (T.pack $ "*" ++ like ++ "*") tracksM
-        tracks' = tracks
-        firstTrack = snd $ head tracks
-    putStrLn $ "First track is:" ++ show firstTrack
 
-
-    let soapMessage = addURIToQueueTemplate firstTrack
-                                            ""
-                                            0
-                                            0
-        addr = let l = zpLocation coord
-               in urlFmt (lUrl l) (lPort l)
-
-    resp <- avSoapAction addr soapMessage
-    let Just queuedBody = resp ^? responseBody
-    return queuedBody
+--queueAndPlayTrackLike :: State
+--                      -> CliArguments
+--                      -> ZonePlayer
+--                      -> String
+--                      -> IO ()
+--queueAndPlayTrackLike state args host like = do
+--    zps <- getZPs state
+--    let coord = findCoordinatorForIp (zpLocation host) zps
+--    queuedBody <- queueTrackLike state args host like
+--    let trackNo = getTrackNum queuedBody
+--        addr = let l = zpLocation coord
+--               in urlFmt (lUrl l) (lPort l)
+--
+--    uuid <- fetchUUID addr
+--    let avMessage = setAVTransportURITemplate (fmtRinconQueue uuid) ""
+--
+--    avSoapAction addr avMessage
+--    avSoapAction addr (seekTrackTemplate trackNo)
+--    avSoapAction addr playTemplate
+--
+--
+--    return ()
+--
+--queueTrackLike :: State
+--               -> CliArguments
+--               -> ZonePlayer
+--               -> String
+--               -> IO BSL.ByteString
+--queueTrackLike state args host like = do
+--    zps <- getZPs state
+--    let coord = findCoordinatorForIp (zpLocation host) zps
+--    tracksM <- atomically $ readTVar $ tracks $ mdb state
+--    let tracks = lookupMany (T.pack $ "*" ++ like ++ "*") tracksM
+--        tracks' = tracks
+--        firstTrack = snd $ head tracks
+--    putStrLn $ "First track is:" ++ show firstTrack
+--
+--
+--    let soapMessage = addURIToQueueTemplate firstTrack
+--                                            ""
+--                                            0
+--                                            0
+--        addr = let l = zpLocation coord
+--               in urlFmt (lUrl l) (lPort l)
+--
+--    resp <- avSoapAction addr soapMessage
+--    let Just queuedBody = resp ^? responseBody
+--    return queuedBody
 
 queueAndPlayArtistLike :: State
                        -> CliArguments
@@ -654,8 +690,8 @@ lookupMany s m = catMaybes $ if hadGlobs s
                     else [ ( (s,) <$> ) $ M.lookup s m]
 
 lookupDistance :: T.Text
-               -> M.Map T.Text T.Text
-               -> T.Text
+               -> M.Map T.Text a
+               -> a
 lookupDistance s m = snd $ M.findMin $ M.fromList $ M.elems $ M.mapWithKey (\k v -> (levenshteinDistance defaultEditCosts (T.unpack k) (T.unpack s), v)) m
 
 queueArtistLike :: State
@@ -668,7 +704,7 @@ queueArtistLike state args host like = do
     let coord = findCoordinatorForIp (zpLocation host) zps
     artistsM <- atomically $ readTVar $ artists $ mdb state
     let --tracks = lookupMany (T.pack $ "*" ++ like ++ "*") artistsM
-        tracks = lookupDistance (T.pack like) artistsM
+        (tracks, tacksMD) = lookupDistance (T.pack like) artistsM
         tracks' = [(like, tracks)]
     putStrLn $ "Tracks are:" ++ show tracks'
 
@@ -798,11 +834,11 @@ playSongzaStationLike state args@(CliArguments{..}) host like = do
 browseContentDirectory :: State
                        -> CliArguments
                        -> T.Text -- Category A:ARTIST A:ALBUM A:TRACK
-                       -> T.Text -- Filter?
+                       -> Filter -- Filter?
                        -> Int -- Start
                        -> Int -- Count
-                       -> T.Text --sort criteria
-                       -> IO (Int, Int, [(T.Text, T.Text)])
+                       -> Sort --sort criteria
+                       -> IO (Int, Int, [(T.Text, (T.Text, T.Text))])
 browseContentDirectory state args cat filt s c sor = do
     zps <- getZPs state
     let coord = head zps
@@ -812,13 +848,15 @@ browseContentDirectory state args cat filt s c sor = do
 
         cdMessage = browseContentDirectoryTemplate cat
                                                    "BrowseDirectChildren"
-                                                   filt
+                                                   (toPathPiece filt)
                                                    s
                                                    c
-                                                   sor
+                                                   (toPathPiece sor)
 
     resp <- cdSoapAction addr cdMessage
 
+    when (cat == "0" || cat == "FV:2" || cat == "FV:3") $
+        print resp
     let Just body = resp ^? responseBody
         structured = browsedContent (BrowseDefault cat) body
     return structured
@@ -826,7 +864,7 @@ browseContentDirectory state args cat filt s c sor = do
 browseMetaData :: State
                -> CliArguments
                -> T.Text -- Category A:ARTIST A:ALBUM A:TRACK
-               -> IO (Int, Int, [(T.Text, T.Text)])
+               -> IO (Int, Int, [(T.Text, (T.Text, T.Text))])
 browseMetaData state args cat = do
     zps <- getZPs state
     let coord = head zps
@@ -852,33 +890,43 @@ lookupWrapper (BrowseDefault k) = fromJust
                 $ M.fromList [ ("A:ARTIST", "container")
                              , ("A:ALBUM", "container")
                              , ("A:TRACKS", "item")
+                             , ("0", "container")
+                             , ("FV:2", "item")
+                             , ("FV:3", "item")
                              ]
 
 browsedContent :: BrowseContainer
                -> BSL.ByteString
-               -> (Int, Int, [(T.Text, T.Text)])
+               -> (Int, Int, [(T.Text, (T.Text, T.Text))])
 browsedContent typeKey body =
     let cursor = fromDocument $ parseLBS_ def body
         wrapper = lookupWrapper typeKey
-        [root] = cursor $/ element "{http://schemas.xmlsoap.org/soap/envelope/}Body"
-        [resultO] = root $/ element (Name "BrowseResponse" (Just "urn:schemas-upnp-org:service:ContentDirectory:1") (Just "u"))
-        [numReturned] = resultO $/ element "NumberReturned"
+        [root] = cursor $/ laxElement "Body"
+        [resultO] = root $/ laxElement "BrowseResponse"
+        [numReturned] = resultO $/ laxElement "NumberReturned"
                            &// content
-        [totalMatches] = resultO $/ element "TotalMatches"
+        [totalMatches] = resultO $/ laxElement "TotalMatches"
                            &// content
 
-        [result] = resultO $/ element "Result"
+        [result] = resultO $/ laxElement "Result"
         result' = (T.concat $ result $/ content)
 
         resultCursor = fromDocument $ parseLBS_ def $ BSL.fromStrict $ TE.encodeUtf8 result'
 
-        things = resultCursor $/ element (Name wrapper (Just "urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/") Nothing)
+        things = resultCursor $/ laxElement wrapper
 
         res = map transform things
         transform elem =
-            let title = element (Name "title" (Just "http://purl.org/dc/elements/1.1/") (Just "dc")) &// content
-                link = element "{urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/}res" &// content
-            in (head $ elem $/ title, head $ elem $/ link)
+            let title = case elem $/ laxElement "title" &// content of
+                    [] -> ""
+                    t -> head t
+                link = case elem $/ laxElement "res" &// content of
+                    [] -> ""
+                    l -> head l
+                resMD = case elem $/ laxElement "resMD" &// content of
+                    [] -> ""
+                    m -> head m
+            in (title, (link, resMD))
     in (read $ T.unpack numReturned, read $ T.unpack totalMatches, res)
 
 fetchUUID :: T.Text

@@ -3,41 +3,44 @@
 {-# LANGUAGE RecordWildCards #-}
 module Sonos.Main where
 
+import Sonos.Types
 import Control.Concurrent.STM
 import Control.Concurrent.Async
-import Control.Concurrent (threadDelay)
-import Control.Monad (forever)
-import Options.Applicative     ( Parser
-                               , execParser
-                               , argument
-                               , info
-                               , helper
-                               , fullDesc
-                               , help
-                               , switch
-                               , metavar
-                               , str
-                               , long
-                               , short
-                               , value
-                               , strOption
-                               , option
-                               , auto
-                               )
-import Data.Monoid ((<>))
-import Sonos.Discover (getTopology)
-import Sonos.Serve (serve)
-import Sonos.Types ( CliArguments(..)
-                   , State(..)
-                   , MusicDB(..)
-                   , ZonePlayer(..)
-                   , PandoraEmail(..)
-                   , PandoraPassword(..)
-                   , SongzaId(..)
-                   )
-import Sonos.Events (subAll)
-import Sonos.Lib (browseContentDirectory)
 import Data.Default
+
+import Control.Concurrent           (threadDelay)
+import Control.Monad                (forever)
+import Options.Applicative          ( Parser
+                                    , execParser
+                                    , argument
+                                    , info
+                                    , helper
+                                    , fullDesc
+                                    , help
+                                    , switch
+                                    , metavar
+                                    , str
+                                    , long
+                                    , short
+                                    , value
+                                    , strOption
+                                    , option
+                                    , auto
+                                    )
+import Data.Monoid                  ((<>))
+import Sonos.Discover               (getTopology)
+import Sonos.Serve                  (serve)
+import Sonos.Types                  ( CliArguments(..)
+                                    , State(..)
+                                    , MusicDB(..)
+                                    , ZonePlayer(..)
+                                    , PandoraEmail(..)
+                                    , PandoraPassword(..)
+                                    , SongzaId(..)
+                                    )
+import Sonos.Events                 (subAll)
+import Sonos.Lib                    (browseContentDirectory)
+
 import qualified Data.Text as T
 import qualified Data.Map.Strict as M
 
@@ -78,7 +81,10 @@ stateStuff topoV = do
 dbStuff state args = do
     let MusicDB {..} = mdb state
     putStrLn "Prepping music db"
-    let fetch :: [[(T.Text,T.Text)]] -> (Int -> IO (Int, Int, [(T.Text, T.Text)])) -> Int -> IO [[(T.Text, T.Text)]]
+    let fetch :: [[(T.Text,(T.Text, T.Text))]]
+              -> (Int -> IO (Int, Int, [(T.Text, (T.Text, T.Text))]))
+              -> Int
+              -> IO [[(T.Text, (T.Text, T.Text))]]
         fetch !xs fn !s = do
             (nr, tm, !res) <- fn s
             if (s + nr) < tm
@@ -90,7 +96,7 @@ dbStuff state args = do
             putStrLn "**********************Refreshing artists**********************"
             allArtists <- fetch [[]] (\s -> do
                                 putStrLn $ "Fetching artists offset at" ++ show s
-                                browseContentDirectory state args "A:ARTIST" "*" s 250 "*") 0
+                                browseContentDirectory state args "A:ARTIST" FAll s 250 SAll) 0
             let !mapArtists = M.fromList $ map (\(k,v) -> (T.toLower k, v)) $ concat allArtists
             atomically $ swapTVar artists mapArtists
             putStrLn "**********************Refreshed artists**********************"
@@ -98,7 +104,7 @@ dbStuff state args = do
             putStrLn "**********************Refreshing albums**********************"
             allAlbums <- fetch [[]] (\s -> do
                                putStrLn $ "Fetching albums offset at" ++ show s
-                               browseContentDirectory state args "A:ALBUM" "*" s 250 "*") 0
+                               browseContentDirectory state args "A:ALBUM" FAll s 250 SAll) 0
             let !mapAlbums = M.fromList $ map (\(k,v) -> (T.toLower k, v)) $ concat allAlbums
             atomically $ swapTVar albums mapAlbums
             putStrLn "**********************Refreshed albums**********************"
@@ -106,7 +112,7 @@ dbStuff state args = do
             putStrLn "**********************Refreshing tracks**********************"
             allTracks <- fetch [[]] (\s -> do
                                putStrLn $ "Fetching tracks offset at" ++ show s
-                               browseContentDirectory state args "A:TRACKS" "*" s 250 "*") 0
+                               browseContentDirectory state args "A:TRACKS" FAll s 250 SAll) 0
             let !mapTracks = M.fromList $ map (\(k,v) -> (T.toLower k, v)) $ concat allTracks
             atomically $ swapTVar tracks mapTracks
             putStrLn "**********************Refreshed tracks**********************"

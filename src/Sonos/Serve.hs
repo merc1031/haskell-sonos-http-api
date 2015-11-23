@@ -33,6 +33,9 @@ serve state args = do
 playR :: WS.Path '[Room]
 playR = "play" WS.<//> WS.var
 
+playFavoriteR :: WS.Path '[Room, String]
+playFavoriteR = "play" WS.<//> "favorite" WS.<//> WS.var WS.<//> WS.var
+
 pauseR :: WS.Path '[Room]
 pauseR = "pause" WS.<//> WS.var
 
@@ -67,7 +70,7 @@ playPandoraRadioLikeR = "pandora" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
 playSongzaRadioLikeR :: WS.Path '[Room, String]
 playSongzaRadioLikeR = "songza" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
 
-browseContentDirectoryR :: WS.Path '[T.Text, T.Text, Int, Int, T.Text]
+browseContentDirectoryR :: WS.Path '[T.Text, Filter, Int, Int, Sort]
 browseContentDirectoryR = "browse" WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var
 
 browseMetaDataR :: WS.Path '[T.Text]
@@ -145,18 +148,24 @@ routes args = do
         let room' = getRoom zps' room
         res <- liftIO $ getState state args room'
         WS.json res
-    WS.get playLikeR $ \room like -> do
+    WS.get playFavoriteR $ \room like -> do
         let room' = getRoom zps' room
         liftIO $ do
             TIO.putStrLn $ "Room was: " <> (unRoom room)
-            queueAndPlayTrackLike state args room' like
+            playFavorite state args room' like
         return ()
-    WS.get enqueueLikeR $ \room like -> do
-        let room' = getRoom zps' room
-        liftIO $ do
-            TIO.putStrLn $ "Room was: " <> (unRoom room)
-            queueTrackLike state args room' like
-        return ()
+--    WS.get playLikeR $ \room like -> do
+--        let room' = getRoom zps' room
+--        liftIO $ do
+--            TIO.putStrLn $ "Room was: " <> (unRoom room)
+--            queueAndPlayTrackLike state args room' like
+--        return ()
+--    WS.get enqueueLikeR $ \room like -> do
+--        let room' = getRoom zps' room
+--        liftIO $ do
+--            TIO.putStrLn $ "Room was: " <> (unRoom room)
+--            queueTrackLike state args room' like
+--        return ()
     WS.get playLikeArtistR $ \room like -> do
         let room' = getRoom zps' room
         liftIO $ do
@@ -239,6 +248,11 @@ routes args = do
         return ()
 
     WS.get browseContentDirectoryR $ \cat filt s c so -> do
+        liftIO $ putStrLn $ show cat
+        liftIO $ putStrLn $ show filt
+        liftIO $ putStrLn $ show s
+        liftIO $ putStrLn $ show c
+        liftIO $ putStrLn $ show so
         res <- liftIO $ do
             browseContentDirectory state args cat filt s c so
         WS.text $ T.pack $ show res
