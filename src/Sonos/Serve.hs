@@ -215,14 +215,14 @@ routes args = do
         WS.text $ T.pack $ show res
     WS.get inspectArtistsLikeR $ \s -> do
         adb <- getAtomicState (artists . mdb)
-        let res = lookupMany s adb
+        let res = lookupDistance s adb--lookupMany s adb
         WS.text $ T.pack $ show res
     WS.get inspectAlbumsLikeR $ \s -> do
         adb <- liftIO $ atomically $ readTVar $ albums $ mdb state
-        let res = lookupMany s adb
+        let res = lookupDistance s adb--lookupMany s adb
         WS.text $ T.pack $ show res
     WS.get inspectTracksLikeR $ \s -> do
         adb <- liftIO $ atomically $ readTVar $ tracks $ mdb state
         liftIO $ putStrLn $ show $ length $ M.toList adb
-        let res = lookupMany s adb
+        let res = lookupDistance s adb--lookupMany s adb
         WS.text $ T.pack $ show res

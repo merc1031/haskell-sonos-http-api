@@ -46,6 +46,7 @@ import qualified HTMLEntities.Decoder as HTML
 import qualified Data.Text.Format as Fmt
 import qualified Formatting as Format
 import Formatting (stext, (%), sformat)
+import Text.EditDistance
 
 import Debug.Trace
 
@@ -378,6 +379,7 @@ queueAndPlayArtistLike :: State
                        -> String
                        -> IO ()
 queueAndPlayArtistLike state args host like = do
+    putStrLn $ "queueAndPlayArtistLike " ++ show like
     zps <- getZPs state
     let coord = findCoordinatorForIp (zpLocation host) zps
     queuedBodys <- queueArtistLike state args host like
@@ -469,6 +471,11 @@ lookupMany s m = catMaybes $ if hadGlobs s
                        $ M.filterWithKey (\k _ -> TE.encodeUtf8 k =~ (convertGlobsToRegex $ T.toLower s)) m
                     else [ ( (s,) <$> ) $ M.lookup s m]
 
+lookupDistance :: T.Text
+               -> M.Map T.Text T.Text
+               -> T.Text
+lookupDistance s m = snd $ M.findMin $ M.fromList $ M.elems $ M.mapWithKey (\k v -> (levenshteinDistance defaultEditCosts (T.unpack k) (T.unpack s), v)) m
+
 queueArtistLike :: State
                 -> CliArguments
                 -> ZonePlayer
@@ -478,8 +485,9 @@ queueArtistLike state args host like = do
     zps <- getZPs state
     let coord = findCoordinatorForIp (zpLocation host) zps
     artistsM <- atomically $ readTVar $ artists $ mdb state
-    let tracks = lookupMany (T.pack $ "*" ++ like ++ "*") artistsM
-        tracks' = tracks
+    let --tracks = lookupMany (T.pack $ "*" ++ like ++ "*") artistsM
+        tracks = lookupDistance (T.pack like) artistsM
+        tracks' = [(like, tracks)]
     putStrLn $ "Tracks are:" ++ show tracks'
 
 
