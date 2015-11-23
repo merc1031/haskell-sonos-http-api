@@ -2,11 +2,11 @@
 {-# LANGUAGE RecordWildCards #-}
 module Sonos.Plugins.Pandora.Types where
 
-import qualified Data.Aeson as J
-import qualified Data.Text as T
-import qualified Data.Aeson.Types as JT
-import qualified Data.Map.Strict as M
-import qualified Data.HashMap.Strict as H
+import qualified Data.Aeson             as J
+import qualified Data.Text              as T
+import qualified Data.Aeson.Types       as JT
+import qualified Data.Map.Strict        as M
+import qualified Data.HashMap.Strict    as H
 
 type UserAuthToken = T.Text
 type SyncTime = Int

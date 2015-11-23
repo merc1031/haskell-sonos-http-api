@@ -7,25 +7,20 @@ import Network.Socket
 import Network.Multicast
 import Control.Concurrent.Async
 import Control.Concurrent.MVar
-
 import Network.Wreq
 import Network.HTTP.Base
-
 import Text.Parsec
-
 import Debug.Trace
-
 import Text.XML
 import Text.XML.Cursor
-
 import Sonos.Types
 
-import Control.Lens ((^?), (.~), (&))
+import Control.Lens                     ((^?), (.~), (&))
 
-import qualified Data.List as L
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Text as T
-import qualified Formatting as Format
+import qualified Data.List              as L
+import qualified Data.ByteString.Lazy   as BSL
+import qualified Data.Text              as T
+import qualified Formatting             as Format
 
 type Parser = Parsec T.Text ()
 

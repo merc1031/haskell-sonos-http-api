@@ -11,21 +11,21 @@ module Sonos.Plugins.Songza
 ) where
 
 import Sonos.Plugins.Songza.Types
-
-import qualified Data.Aeson as J
-import qualified Data.Text as T
-
 import Network.Wreq
 import Control.Monad
-import Network.HTTP.Types.Status (status200)
-import Control.Lens                         ((^?), (^?!), (.~), (&))
-import qualified Formatting as Format
-import Formatting (stext, (%), sformat, int)
 
-import qualified HTMLEntities.Builder as HTML
-import qualified HTMLEntities.Decoder as HTML
+import Network.HTTP.Types.Status            (status200)
+import Control.Lens                         ((^?), (^?!), (.~), (&))
+import Formatting                           (stext, (%), sformat, int)
+
+import qualified Formatting                 as Format
+import qualified HTMLEntities.Builder       as HTML
+import qualified HTMLEntities.Decoder       as HTML
 import qualified Data.Text.Lazy             as TL
 import qualified Data.Text.Lazy.Builder     as TLB
+import qualified Data.Aeson                 as J
+import qualified Data.Text                  as T
+
 
 endpoint = "http://songza.com/api/1"
 -- | Interestingly i need to encode the : in station and the & in flags but not urlEncode...

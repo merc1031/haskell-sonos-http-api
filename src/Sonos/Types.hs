@@ -4,16 +4,17 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Sonos.Types where
 
-import Data.Aeson ( ToJSON(..)
-                  , object
-                  , (.=)
-                  )
 import Control.Concurrent.STM
 import Web.PathPieces
 import Data.Default
-import qualified Data.Text as T
-import qualified Formatting as Format
-import qualified Data.Map.Strict as M
+
+import Data.Aeson                   ( ToJSON(..)
+                                    , object
+                                    , (.=)
+                                    )
+import qualified Data.Text          as T
+import qualified Formatting         as Format
+import qualified Data.Map.Strict    as M
 
 newtype Room = Room { unRoom :: T.Text } deriving (PathPiece)
 data Op = Pl | Mi | E

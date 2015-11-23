@@ -10,16 +10,17 @@ module Sonos.Plugins.Pandora
 
 import Sonos.Plugins.Pandora.Types
 import Sonos.Plugins.Pandora.Crypt
-
-import qualified Data.Aeson as J
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.Char8 as BSC
-
 import Network.Wreq
 import Control.Monad
-import Network.HTTP.Types.Status (status200)
+
+import Network.HTTP.Types.Status            (status200)
 import Control.Lens                         ((^?), (^?!), (.~), (&))
-import qualified Data.Time.Clock.POSIX as POSIX
+
+import qualified Data.Time.Clock.POSIX      as POSIX
+import qualified Data.Aeson                 as J
+import qualified Data.ByteString.Lazy       as BSL
+import qualified Data.ByteString.Char8      as BSC
+
 
 endpoint = "http://tuner.pandora.com/services/json/"
 endpointSecure = "https://tuner.pandora.com/services/json/"

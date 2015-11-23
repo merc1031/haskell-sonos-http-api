@@ -7,28 +7,28 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.IO.Class
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM
-import Data.String (IsString)
-import Data.Maybe (fromJust)
 import Network.Info
 import Network.Wreq
 import Sonos.Types
-import Network.Wai (Request (..))
-import Control.Lens                         ((^?), (.~), (&))
-import qualified Data.ByteString.Char8   as BSC
-import qualified Data.ByteString as BS
-import qualified Data.Map.Strict as M
-import Data.Char (toLower)
 import Data.List
 import Control.Concurrent.Async
-import Control.Concurrent (threadDelay)
 import Text.XML
 import Text.XML.Cursor
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
-import qualified Data.Text.Lazy as TL
-import qualified Data.ByteString.Lazy as BSL
-import qualified Safe as Safe
 import Debug.Trace
+import Data.String                          (IsString)
+import Data.Maybe                           (fromJust)
+import Network.Wai                          (Request (..))
+import Control.Lens                         ((^?), (.~), (&))
+import Data.Char                            (toLower)
+import Control.Concurrent                   (threadDelay)
+import qualified Data.ByteString.Char8      as BSC
+import qualified Data.ByteString            as BS
+import qualified Data.Map.Strict            as M
+import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as TE
+import qualified Data.Text.Lazy             as TL
+import qualified Data.ByteString.Lazy       as BSL
+import qualified Safe                       as Safe
 
 --getLocalAddr = ipv4 . getNetworkInterfaces
 subAll zp me port = do
@@ -233,7 +233,7 @@ updateSpeaker speaker event =
                                     , ssElapsedTime = ""
                                     , ssElapsedTimeFormatted = ""
                                     , ssPlayerState = tTransportState
-                                    , ssCurrentPlayMode = tCurrentPlayMode { crossfade = tCurrentCrossfadeMode == 1 } 
+                                    , ssCurrentPlayMode = tCurrentPlayMode { crossfade = tCurrentCrossfadeMode == 1 }
                                     }
                     _ -> speakerData
             liftIO $ atomically $ writeTVar speaker sData

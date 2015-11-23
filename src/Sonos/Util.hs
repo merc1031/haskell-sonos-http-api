@@ -2,7 +2,6 @@
 module Sonos.Util where
 
 import Sonos.Discover
-
 import Sonos.Types
 
 import qualified Data.Map.Strict as M

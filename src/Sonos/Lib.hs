@@ -8,26 +8,34 @@
 module Sonos.Lib where
 
 import Network.Wreq
-import Network.HTTP.Base (urlEncode)
 import Data.String.Utils
 import Text.XML
 import Text.XML.Cursor
 import Control.Concurrent.STM
-
 import Text.Regex.PCRE
-
 import Sonos.Types
-
 import Control.Monad
-import Data.Maybe                           (fromJust, catMaybes)
-import Data.String                          (fromString, IsString)
+import Text.EditDistance
+import Debug.Trace
+
+import Network.HTTP.Base                    (urlEncode)
+import Data.Maybe                           ( fromJust
+                                            , catMaybes
+                                            )
+import Data.String                          ( fromString
+                                            , IsString
+                                            )
 import Sonos.Util                           ( findCoordinatorForIp
                                             , findCoordinators
                                             )
 import Control.Monad                        (forever)
 import Control.Concurrent                   (threadDelay)
-import Network.HTTP.Types.Status (status200)
-import Control.Lens                         ((^?), (^?!), (.~), (&))
+import Network.HTTP.Types.Status            (status200)
+import Control.Lens                         ( (^?)
+                                            , (^?!)
+                                            , (.~)
+                                            , (&)
+                                            )
 import Data.Monoid                          ((<>))
 import Data.Char                            (toLower)
 
@@ -41,16 +49,16 @@ import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as TE
 import qualified Data.Text.Lazy             as TL
 import qualified Data.Text.Lazy.Builder     as TLB
-import qualified Sonos.Plugins.Pandora as Pandora
-import qualified Sonos.Plugins.Songza as Songza
-import qualified HTMLEntities.Builder as HTML
-import qualified HTMLEntities.Decoder as HTML
-import qualified Data.Text.Format as Fmt
-import qualified Formatting as Format
-import Formatting (stext, (%), sformat)
-import Text.EditDistance
-
-import Debug.Trace
+import qualified Sonos.Plugins.Pandora      as Pandora
+import qualified Sonos.Plugins.Songza       as Songza
+import qualified HTMLEntities.Builder       as HTML
+import qualified HTMLEntities.Decoder       as HTML
+import qualified Data.Text.Format           as Fmt
+import qualified Formatting                 as Format
+import Formatting                           ( stext
+                                            , (%)
+                                            , sformat
+                                            )
 
 data BrowseContainer = BrowseDefault T.Text
                      | BrowseSpecified T.Text
@@ -86,7 +94,7 @@ wrap (Name {..}) ec content =
             Just e -> let fmtEC = sformat $ " " % stext % "encodingStyle=\"" % stext % "\""
                       in fmtEC pfx e
             Nothing -> ""
-    in 
+    in
         let fmtM = sformat
                  $ "<" %
                         stext %
@@ -123,47 +131,54 @@ rcTransportNS = sformat ("xmlns:u=\"" % stext % "\"") rcTransportAction
 grcTransportNS :: T.Text
 grcTransportNS = sformat ("xmlns:u=\"" % stext % "\"") grcTransportAction
 
-nextTrackTemplate :: T.Text
-nextTrackTemplate =
-    avTransportTemplate "Next"
-                        [ ("InstanceID", "0")]
+type Template = (T.Text, T.Text)
 
-previousTrackTemplate :: T.Text
+nextTrackTemplate :: Template
+nextTrackTemplate =
+    let a = "Next"
+    in (a, avTransportTemplate a
+                               [ ("InstanceID", "0")])
+
+previousTrackTemplate :: Template
 previousTrackTemplate =
-    avTransportTemplate "Previous"
-                        [ ("InstanceID", "0")]
+    let a = "Previous"
+    in (a, avTransportTemplate a
+                               [ ("InstanceID", "0")])
 
 volumeTemplate :: Int
-               -> T.Text
+               -> Template
 volumeTemplate volume =
-    rcTransportTemplate "SetVolume"
-                        [ ("InstanceID", "0")
-                        , ("Channel", "Master")
-                        , ("DesiredVolume", T.pack $ show volume)
-                        ]
+    let a = "SetVolume"
+    in (a, rcTransportTemplate a
+                               [ ("InstanceID", "0")
+                               , ("Channel", "Master")
+                               , ("DesiredVolume", T.pack $ show volume)
+                               ])
 
 groupVolumeTemplate :: Int
-                    -> T.Text
+                    -> Template
 groupVolumeTemplate volume =
-    grcTransportTemplate "SetGroupVolume"
-                        [ ("InstanceID", "0")
-                        , ("Channel", "Master")
-                        , ("DesiredVolume", T.pack $ show volume)
-                        ]
+    let a = "SetGroupVolume"
+    in (a, grcTransportTemplate a
+                                [ ("InstanceID", "0")
+                                , ("Channel", "Master")
+                                , ("DesiredVolume", T.pack $ show volume)
+                                ])
 
 addURIToQueueTemplate :: T.Text
                       -> T.Text
                       -> Int
                       -> Int
-                      -> T.Text
+                      -> Template
 addURIToQueueTemplate uri meta first next =
-    avTransportTemplate "AddURIToQueue"
-                        [ ("InstanceID", "0")
-                        , ("EnqueuedURI", uri)
-                        , ("EnqueuedURIMetaData", meta)
-                        , ("DesiredFirstTrackNumberEnqueued", T.pack $ show first)
-                        , ("EnqueueAsNext", T.pack $ show next)
-                        ]
+    let a = "AddURIToQueue"
+    in (a, avTransportTemplate a
+                               [ ("InstanceID", "0")
+                               , ("EnqueuedURI", uri)
+                               , ("EnqueuedURIMetaData", meta)
+                               , ("DesiredFirstTrackNumberEnqueued", T.pack $ show first)
+                               , ("EnqueueAsNext", T.pack $ show next)
+                               ])
 
 addMultipleURIsToQueueTemplate :: [T.Text]
                                -> [T.Text]
@@ -171,56 +186,62 @@ addMultipleURIsToQueueTemplate :: [T.Text]
                                -> T.Text
                                -> Int
                                -> Int
-                               -> T.Text
+                               -> Template
 addMultipleURIsToQueueTemplate uris metas containerUri containerMetadata first next =
-    avTransportTemplate "AddMultipleURIsToQueue"
-                        [ ("InstanceID", "0")
-                        , ("UpdateID", "0")
-                        , ("NumberOfURIs", T.pack $ show $ length uris)
-                        , ("EnqueuedURIs", T.intercalate " " uris)
-                        , ("EnqueuedURIMetaDatas", T.intercalate " " metas)
-                        , ("ContainerURI", containerUri)
-                        , ("ContainerMetaData", containerMetadata)
-                        , ("DesiredFirstTrackNumberEnqueued", T.pack $ show first)
-                        , ("EnqueueAsNext", T.pack $ show next)
-                        ]
+    let a = "AddMultipleURIsToQueue"
+    in (a, avTransportTemplate a
+                               [ ("InstanceID", "0")
+                               , ("UpdateID", "0")
+                               , ("NumberOfURIs", T.pack $ show $ length uris)
+                               , ("EnqueuedURIs", T.intercalate " " uris)
+                               , ("EnqueuedURIMetaDatas", T.intercalate " " metas)
+                               , ("ContainerURI", containerUri)
+                               , ("ContainerMetaData", containerMetadata)
+                               , ("DesiredFirstTrackNumberEnqueued", T.pack $ show first)
+                               , ("EnqueueAsNext", T.pack $ show next)
+                               ])
 
-playTemplate :: T.Text
+playTemplate :: Template
 playTemplate =
-    avTransportTemplate "Play"
-                        [ ("InstanceID", "0")
-                        , ("Speed", "1")
-                        ]
+    let a = "Play"
+    in (a, avTransportTemplate a
+                               [ ("InstanceID", "0")
+                               , ("Speed", "1")
+                               ])
 
-pauseTemplate :: T.Text
+pauseTemplate :: Template
 pauseTemplate =
-    avTransportTemplate "Pause"
-                        [ ("InstanceID", "0")]
+    let a = "Pause"
+    in (a, avTransportTemplate a
+                               [ ("InstanceID", "0")])
 
 setAVTransportURITemplate :: T.Text
                           -> T.Text
-                          -> T.Text
+                          -> Template
 setAVTransportURITemplate uri meta =
-    avTransportTemplate "SetAVTransportURI"
-                        [ ("InstanceID", "0")
-                        , ("CurrentURI", uri)
-                        , ("CurrentURIMetaData", meta)
-                        ]
+    let a = "SetAVTransportURI"
+    in (a, avTransportTemplate a
+                               [ ("InstanceID", "0")
+                               , ("CurrentURI", uri)
+                               , ("CurrentURIMetaData", meta)
+                               ])
 
-becomeCoordinatorOfStandaloneGroup :: T.Text
+becomeCoordinatorOfStandaloneGroup :: Template
 becomeCoordinatorOfStandaloneGroup =
-    avTransportTemplate "BecomeCoordinatorOfStandaloneGroup"
-                        [ ("InstanceID", "0")
-                        ]
+    let a = "BecomeCoordinatorOfStandaloneGroup"
+    in (a, avTransportTemplate a
+                               [ ("InstanceID", "0")
+                               ])
 
 seekTrackTemplate :: Int
-                  -> T.Text
+                  -> Template
 seekTrackTemplate track =
-    avTransportTemplate "Seek"
-                        [ ("InstanceID", "0")
-                        , ("Unit", "TRACK_NR")
-                        , ("Target", T.pack $ show track)
-                        ]
+    let a = "Seek"
+    in (a, avTransportTemplate a
+                               [ ("InstanceID", "0")
+                               , ("Unit", "TRACK_NR")
+                               , ("Target", T.pack $ show track)
+                               ])
 
 browseContentDirectoryTemplate :: T.Text
                                -> T.Text
@@ -228,16 +249,17 @@ browseContentDirectoryTemplate :: T.Text
                                -> Int
                                -> Int
                                -> T.Text
-                               -> T.Text
+                               -> Template
 browseContentDirectoryTemplate oid flag filter sidx rqc sort =
-    cdTransportTemplate "Browse"
-                        [ ("ObjectID", oid)
-                        , ("BrowseFlag", flag)
-                        , ("Filter", filter)
-                        , ("StartingIndex", T.pack $ show sidx)
-                        , ("RequestedCount", T.pack $ show rqc)
-                        , ("SortCriteria", sort)
-                        ]
+    let a = "Browse"
+    in (a, cdTransportTemplate a
+                               [ ("ObjectID", oid)
+                               , ("BrowseFlag", flag)
+                               , ("Filter", filter)
+                               , ("StartingIndex", T.pack $ show sidx)
+                               , ("RequestedCount", T.pack $ show rqc)
+                               , ("SortCriteria", sort)
+                               ])
 
 getMetaData oid = browseContentDirectoryTemplate oid
                                                  "BrowseMetadata"
@@ -302,8 +324,10 @@ avSoapAction = soapAction' avTransportAction "/MediaRenderer/AVTransport/Control
 rcSoapAction = soapAction' rcTransportAction "/MediaRenderer/RenderingControl/Control"
 grcSoapAction = soapAction' grcTransportAction "/MediaRenderer/GroupRenderingControl/Control"
 
-soapAction' t ep h a m = do
-    resp <- soapAction t ep h a m
+avSoapAction' = soapAction avTransportAction "/MediaRenderer/AVTransport/Control"
+
+soapAction' t ep h t' = do
+    resp <- soapAction t ep h t'
     handle resp
     return resp
 
@@ -314,10 +338,9 @@ handle resp = do
 soapAction :: T.Text
            -> T.Text
            -> T.Text
-           -> T.Text
-           -> T.Text
+           -> Template
            -> IO (Response BSL.ByteString)
-soapAction transport ep host action msg = do
+soapAction transport ep host (action, msg) = do
     let opts = defaults & header "Host" .~ [TE.encodeUtf8 host]
                         & header "User-Agent" .~ ["Haskell post"]
                         & header "Content-type" .~ ["text/xml; charset=\"UTF-8\""]
@@ -359,7 +382,7 @@ groupRoom state args a b = do
         addr = let l = zpLocation coordA
                in urlFmt (lUrl l) (lPort l)
     let avMessage = setAVTransportURITemplate (fmtRincon (zpUUID coordB)) ""
-    avSoapAction addr "SetAVTransportURI" avMessage
+    avSoapAction addr avMessage
     return ()
 
 ungroupRoom :: State
@@ -370,7 +393,7 @@ ungroupRoom state args room = do
     let addr = let l = zpLocation room
                in urlFmt (lUrl l) (lPort l)
     let avMessage = becomeCoordinatorOfStandaloneGroup
-    avSoapAction addr "BecomeCoordinatorOfStandaloneGroup" avMessage
+    avSoapAction addr avMessage
     return ()
 
 
@@ -400,7 +423,7 @@ volume state args host op value = do
     ss <- getSpeakerState state host
 
     let newVol = modVolume ss op value
-    rcSoapAction addr "SetVolume" (volumeTemplate newVol)
+    rcSoapAction addr (volumeTemplate newVol)
     return ()
 
 groupVolume :: State
@@ -418,7 +441,7 @@ groupVolume state args host op value = do
 
     let newVol = modVolume ss op value
 
-    grcSoapAction addr "SetGroupVolume" (groupVolumeTemplate newVol)
+    grcSoapAction addr (groupVolumeTemplate newVol)
     return ()
 
 play :: State
@@ -431,7 +454,7 @@ play state args host = do
         addr = let l = zpLocation coord
                in urlFmt (lUrl l) (lPort l)
 
-    avSoapAction addr "Play" playTemplate
+    avSoapAction addr playTemplate
     return ()
 
 pause :: State
@@ -445,9 +468,12 @@ pause state args host = do
                in urlFmt (lUrl l) (lPort l)
 
 
+    print coord
     ss <- getSpeakerState state coord
-    when (ssPlayerState ss == "PLAYING") $
-        void $ avSoapAction addr "Pause" pauseTemplate
+    print ss
+    when (ssPlayerState ss == "PLAYING") $ do
+        r <- avSoapAction' addr pauseTemplate
+        print r
     return ()
 
 playall :: State
@@ -459,7 +485,7 @@ playall state args = do
         toAddr zp = let l = zpLocation zp
                in urlFmt (lUrl l) (lPort l)
 
-    mapM_ (\zp -> avSoapAction (toAddr zp) "Play" playTemplate) coords
+    mapM_ (\zp -> avSoapAction (toAddr zp) playTemplate) coords
     return ()
 
 pauseall :: State
@@ -476,7 +502,7 @@ pauseall state args = do
     mapM_ (\zp -> do
           ss <- getSpeakerState state zp
           when (ssPlayerState ss == "PLAYING") $
-            void $ avSoapAction (toAddr zp) "Pause" pauseTemplate) coords
+            void $ avSoapAction (toAddr zp) pauseTemplate) coords
     return ()
 
 
@@ -496,9 +522,9 @@ queueAndPlayTrackLike state args host like = do
     uuid <- fetchUUID addr
     let avMessage = setAVTransportURITemplate (fmtRinconQueue uuid) ""
 
-    avSoapAction addr "SetAVTransportURI" avMessage
-    avSoapAction addr "Seek" (seekTrackTemplate trackNo)
-    avSoapAction addr "Play" playTemplate
+    avSoapAction addr avMessage
+    avSoapAction addr (seekTrackTemplate trackNo)
+    avSoapAction addr playTemplate
 
 
     return ()
@@ -525,7 +551,7 @@ queueTrackLike state args host like = do
         addr = let l = zpLocation coord
                in urlFmt (lUrl l) (lPort l)
 
-    resp <- avSoapAction addr "AddURIToQueue" soapMessage
+    resp <- avSoapAction addr soapMessage
     let Just queuedBody = resp ^? responseBody
     return queuedBody
 
@@ -546,9 +572,9 @@ queueAndPlayArtistLike state args host like = do
     uuid <- fetchUUID addr
     let avMessage = setAVTransportURITemplate (fmtRinconQueue uuid) ""
 
-    avSoapAction addr "SetAVTransportURI" avMessage
-    avSoapAction addr "Seek" (seekTrackTemplate trackNo)
-    avSoapAction addr "Play" playTemplate
+    avSoapAction addr avMessage
+    avSoapAction addr (seekTrackTemplate trackNo)
+    avSoapAction addr playTemplate
 
 
     return ()
@@ -562,7 +588,7 @@ nextTrack state args host = do
     let coord = findCoordinatorForIp (zpLocation host) zps
         addr = let l = zpLocation coord
                in urlFmt (lUrl l) (lPort l)
-    avSoapAction addr "Next" nextTrackTemplate
+    avSoapAction addr nextTrackTemplate
     return ()
 
 previousTrack :: State
@@ -574,7 +600,7 @@ previousTrack state args host = do
     let coord = findCoordinatorForIp (zpLocation host) zps
         addr = let l = zpLocation coord
                in urlFmt (lUrl l) (lPort l)
-    avSoapAction addr "Previous" previousTrackTemplate
+    avSoapAction addr previousTrackTemplate
     return ()
 
 
@@ -654,7 +680,7 @@ queueArtistLike state args host like = do
         addr = let l = zpLocation coord
                in urlFmt (lUrl l) (lPort l)
 
-    mapM (\t -> (\r -> r ^? responseBody) <$> avSoapAction addr "AddURIToQueue" (soapMessage $ snd t)) tracks'
+    mapM (\t -> (\r -> r ^? responseBody) <$> avSoapAction addr (soapMessage $ snd t)) tracks'
 
 
 didlWrapper c =
@@ -728,9 +754,9 @@ playPandoraStationLike state args@(CliArguments{..}) host like = do
                                               metadata
 
     putStrLn $ show avMessage
-    avSoapAction addr "SetAVTransportURI" avMessage
+    avSoapAction addr avMessage
     putStrLn "Time to play"
-    avSoapAction addr "Play" playTemplate
+    avSoapAction addr playTemplate
 
 
     return ()
@@ -762,9 +788,9 @@ playSongzaStationLike state args@(CliArguments{..}) host like = do
                                               metadata
 
     putStrLn $ show avMessage
-    avSoapAction addr "SetAVTransportURI" avMessage
+    avSoapAction addr avMessage
     putStrLn "Time to play"
-    avSoapAction addr "Play" playTemplate
+    avSoapAction addr playTemplate
 
 
     return ()
@@ -791,7 +817,7 @@ browseContentDirectory state args cat filt s c sor = do
                                                    c
                                                    sor
 
-    resp <- cdSoapAction addr "Browse" cdMessage
+    resp <- cdSoapAction addr cdMessage
 
     let Just body = resp ^? responseBody
         structured = browsedContent (BrowseDefault cat) body
@@ -810,7 +836,7 @@ browseMetaData state args cat = do
 
         cdMessage = getMetaData cat
 
-    resp <- cdSoapAction addr "Browse" cdMessage
+    resp <- cdSoapAction addr cdMessage
 
     let Just body = resp ^? responseBody
         structured = browsedContent (BrowseSpecified "container") body

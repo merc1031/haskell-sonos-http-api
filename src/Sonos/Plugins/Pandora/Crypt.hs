@@ -1,14 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Sonos.Plugins.Pandora.Crypt where
 
-import qualified Crypto.Cipher as C
-import qualified Crypto.Padding as CP
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Base16 as B16
-import qualified Data.ByteString.Char8 as BSC
-import qualified Data.Text.Encoding as TE
-import Data.Char (toLower)
-import Crypto.Types (ByteLength)
+import Data.Char                            (toLower)
+import Crypto.Types                         (ByteLength)
+
+import qualified Crypto.Cipher              as C
+import qualified Crypto.Padding             as CP
+import qualified Data.ByteString            as BS
+import qualified Data.ByteString.Base16     as B16
+import qualified Data.ByteString.Char8      as BSC
+import qualified Data.Text.Encoding         as TE
 
 outCrypt = "6#26FRL$ZWD"
 inCrypt = "R=U!LH$O2B#"

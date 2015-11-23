@@ -7,21 +7,22 @@ module Sonos.Serve where
 import Control.Monad.IO.Class
 import Sonos.Lib
 import Sonos.Types
-import Sonos.Events (handleEvent)
 import Network.Wai
-import Data.Monoid ((<>))
-import Sonos.Discover (getTopology)
-import Control.Concurrent (threadDelay)
 import Control.Concurrent.STM
-import Control.Concurrent.Async (async)
-import qualified Web.Spock as WS
 import Network.Wai.Middleware.RequestLogger
 import Data.Default
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
-import qualified Data.Map.Strict as M
-import System.IO (stderr)
+
+import Sonos.Events                     (handleEvent)
+import Data.Monoid                      ((<>))
+import Sonos.Discover                   (getTopology)
+import Control.Concurrent               (threadDelay)
+import Control.Concurrent.Async         (async)
+import System.IO                        (stderr)
+import qualified Data.ByteString.Lazy   as BSL
+import qualified Data.Text              as T
+import qualified Data.Text.IO           as TIO
+import qualified Data.Map.Strict        as M
+import qualified Web.Spock              as WS
 
 
 serve state args = do

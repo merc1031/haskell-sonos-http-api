@@ -2,8 +2,8 @@
 {-# LANGUAGE RecordWildCards #-}
 module Sonos.Plugins.Songza.Types where
 
-import qualified Data.Text as T
-import qualified Data.Aeson as J
+import qualified Data.Text      as T
+import qualified Data.Aeson     as J
 
 data StationListResponse = StationListResponse
     { slrDasherizedName :: T.Text
