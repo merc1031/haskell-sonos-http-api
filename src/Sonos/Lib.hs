@@ -444,7 +444,10 @@ pause state args host = do
         addr = let l = zpLocation coord
                in urlFmt (lUrl l) (lPort l)
 
-    avSoapAction addr "Pause" pauseTemplate
+
+    ss <- getSpeakerState state coord
+    when (ssPlayerState ss == "PLAYING") $
+        void $ avSoapAction addr "Pause" pauseTemplate
     return ()
 
 playall :: State
@@ -468,7 +471,12 @@ pauseall state args = do
         toAddr zp = let l = zpLocation zp
                in urlFmt (lUrl l) (lPort l)
 
-    mapM_ (\zp -> avSoapAction (toAddr zp) "Pause" pauseTemplate) coords
+    putStrLn "Pausing all"
+    putStrLn $ show coords
+    mapM_ (\zp -> do
+          ss <- getSpeakerState state zp
+          when (ssPlayerState ss == "PLAYING") $
+            void $ avSoapAction (toAddr zp) "Pause" pauseTemplate) coords
     return ()
 
 
