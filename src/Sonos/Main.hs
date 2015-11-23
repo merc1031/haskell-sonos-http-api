@@ -27,7 +27,14 @@ import Options.Applicative     ( Parser
 import Data.Monoid ((<>))
 import Sonos.Discover (getTopology)
 import Sonos.Serve (serve)
-import Sonos.Types (CliArguments(..), State(..), MusicDB(..), ZonePlayer(..))
+import Sonos.Types ( CliArguments(..)
+                   , State(..)
+                   , MusicDB(..)
+                   , ZonePlayer(..)
+                   , PandoraEmail(..)
+                   , PandoraPassword(..)
+                   , SongzaId(..)
+                   )
 import Sonos.Events (subAll)
 import Sonos.Lib (browseContentDirectory)
 import Data.Default
@@ -39,30 +46,22 @@ parseArgs = execParser $ info (helper <*> parseCliArgs) fullDesc
 
 parseCliArgs :: Parser CliArguments
 parseCliArgs =
-    let directory = strOption
-            ( long "directory"
-            <> short 'd'
-            <> help "Directory to search in"
-            )
-        email :: Parser T.Text
-        email = fmap T.pack $ strOption
-            ( long "email"
-            <> short 'e'
+    let pandoraEmail :: Parser PandoraEmail
+        pandoraEmail = fmap (PandoraEmail . T.pack) $ strOption
+            ( long "pandora-email"
             <> help "email for pandora"
             )
-        password :: Parser T.Text
-        password = fmap T.pack $ strOption
-            ( long "password"
-            <> short 'p'
+        pandoraPassword :: Parser PandoraPassword
+        pandoraPassword = fmap (PandoraPassword . T.pack) $ strOption
+            ( long "pandora-password"
             <> help "password for pandora"
             )
-        songzaId :: Parser T.Text
-        songzaId = fmap T.pack $ strOption
+        songzaId :: Parser SongzaId
+        songzaId = fmap (SongzaId . T.pack) $ strOption
             ( long "songza-id"
-            <> short 's'
             <> help "user id for songza"
             )
-    in CliArguments <$> directory <*> email <*> password <*> songzaId
+    in CliArguments <$> pandoraEmail <*> pandoraPassword <*> songzaId
 
 
 stateStuff topoV = do

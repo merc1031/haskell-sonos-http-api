@@ -549,7 +549,8 @@ playPandoraStationLike state args@(CliArguments{..}) host like = do
         addr = let l = zpLocation coord
                in urlFmt (lUrl l) (lPort l)
 
-    pw <- Pandora.login email password
+    pw <- Pandora.login (unPandoraEmail caPandoraEmail)
+                        (unPandoraPassword caPandoraPassword)
     st <- Pandora.searchStation pw $ T.pack like
     st' <- Pandora.createStation pw (Pandora.artistMusicToken $ head $ Pandora.msrArtists st)
 
@@ -558,7 +559,7 @@ playPandoraStationLike state args@(CliArguments{..}) host like = do
         stationName = Pandora.sStationName station
         metadata = didlTemplate stationId
                                 stationName
-                                email
+                                (unPandoraEmail caPandoraEmail)
         avMessage = setAVTransportURITemplate (pandoraRadioFmt stationId)
                                               metadata
 
@@ -592,7 +593,7 @@ playSongzaStationLike state args@(CliArguments{..}) host like = do
         metadata = Songza.mkMetaData stationId
                                      "0" -- Not sure how to discover the situationid taht goes here
                                      stationName
-                                     songzaId
+                                     (unSongzaId caSongzaId)
         avMessage = setAVTransportURITemplate (Songza.mkUri stationId)
                                               metadata
 

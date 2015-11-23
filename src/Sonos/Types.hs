@@ -31,11 +31,19 @@ data State = State
     , mdb :: MusicDB
     }
 
+newtype PandoraEmail = PandoraEmail { unPandoraEmail :: T.Text }
+    deriving Show
+newtype PandoraPassword = PandoraPassword { unPandoraPassword :: T.Text }
+newtype SongzaId = SongzaId { unSongzaId :: T.Text }
+    deriving Show
+
+instance Show PandoraPassword where
+    show PandoraPassword{} = "PandoraPassword"
+
 data CliArguments = CliArguments
-    { dir :: !String
-    , email :: !T.Text
-    , password :: !T.Text
-    , songzaId :: !T.Text
+    { caPandoraEmail :: !PandoraEmail
+    , caPandoraPassword :: !PandoraPassword
+    , caSongzaId :: !SongzaId
     }
 
 data TrackState = TrackState
