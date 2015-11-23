@@ -17,6 +17,7 @@ import qualified Data.Map.Strict as M
 
 newtype Room = Room { unRoom :: T.Text } deriving (PathPiece)
 data Op = Pl | Mi | E
+    deriving Show
 
 instance PathPiece Op where
     fromPathPiece text

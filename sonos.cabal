@@ -23,7 +23,10 @@ library
                        , Sonos.Main
                        , Sonos.Events
                        , Sonos.Plugins.Pandora
+                       , Sonos.Plugins.Pandora.Crypt
+                       , Sonos.Plugins.Pandora.Types
                        , Sonos.Plugins.Songza
+                       , Sonos.Plugins.Songza.Types
   build-depends:         base >= 4.7 && < 5
                        , parsec
                        , wreq

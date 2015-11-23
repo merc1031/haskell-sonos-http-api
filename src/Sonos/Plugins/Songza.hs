@@ -7,30 +7,18 @@ module Sonos.Plugins.Songza
 , getSituationList
 , StationListResponse (..)
 , SituationListResponse (..)
+, module Sonos.Plugins.Songza.Types
 ) where
 
-import qualified Data.Aeson as J
-import qualified Data.Aeson.Types as JT
-import qualified Data.Map.Strict as M
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.Base64 as B64
-import qualified Data.ByteString.Base16 as B16
-import qualified Data.ByteString.Char8 as BSC
-import qualified Data.HashMap.Strict as H
+import Sonos.Plugins.Songza.Types
 
-import Network.HTTP.Base (urlEncode)
+import qualified Data.Aeson as J
+import qualified Data.Text as T
+
 import Network.Wreq
 import Control.Monad
 import Network.HTTP.Types.Status (status200)
-import Data.Char (toLower)
 import Control.Lens                         ((^?), (^?!), (.~), (&))
-import qualified Crypto.Cipher as C
-import qualified Crypto.Padding as CP
-import Crypto.Types (ByteLength)
-import qualified Data.Time.Clock.POSIX as POSIX
 import qualified Formatting as Format
 import Formatting (stext, (%), sformat, int)
 
@@ -96,64 +84,6 @@ didlTemplate stId sitId stName uid =
      uid
 
 mkMetaData stId sitId stName uid = didlTemplate (T.concat ["station%3a",T.pack $ show stId]) (T.concat ["situation%3a", sitId]) stName uid
-
-data StationListResponse = StationListResponse
-    { slrDasherizedName :: T.Text
-    , slrStatus :: T.Text
-    , slrGlobalStation :: Maybe T.Text
-    , slrName :: T.Text
-    , slrCreatorName :: T.Text
-    , slrUrl :: T.Text
-    , slrSongCount :: Int
-    , slrCoverUrl :: T.Text
-    , slrFeaturedArtists :: [Artist]
-    , slrCreatorId :: Int
-    , slrType :: T.Text
-    , slrId :: Int
-    , slrDescription :: T.Text
-    } deriving Show
-
-newtype Artist = Artist T.Text
-    deriving Show
-
-instance J.FromJSON Artist where
-    parseJSON = J.withObject "FromJSON Artist" $ \o ->
-        Artist <$> o J..: "name"
-
-instance J.FromJSON StationListResponse where
-    parseJSON = J.withObject "FromJSON StationListResponse" $ \o ->
-        StationListResponse <$> o J..: "dasherized_name"
-                            <*> o J..: "status"
-                            <*> o J..:? "global_station"
-                            <*> o J..: "name"
-                            <*> o J..: "creator_name"
-                            <*> o J..: "url"
-                            <*> o J..: "song_count"
-                            <*> o J..: "cover_url"
-                            <*> o J..: "featured_artists"
-                            <*> o J..: "creator_id"
-                            <*> o J..: "type"
-                            <*> o J..: "id"
-                            <*> o J..: "description"
-
-data SituationListResponse = SituationListResponse
-    { silrTitle :: T.Text
-    , silrSituations :: [T.Text]
-    , silrSelectedMessage :: T.Text
-    , silrStationIds :: Maybe [Int]
-    , silrId :: T.Text
-    , silrIcon :: T.Text
-    } deriving Show
-
-instance J.FromJSON SituationListResponse where
-    parseJSON = J.withObject "FromJSON SituationListResponse" $ \o ->
-        SituationListResponse <$> o J..: "title"
-                              <*> o J..: "situations"
-                              <*> o J..: "selected_message"
-                              <*> o J..:? "station_ids"
-                              <*> o J..: "id"
-                              <*> o J..: "icon"
-
 
 getStationList search = do
     let target = endpoint
