@@ -21,6 +21,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.Map.Strict as M
+import System.IO (stderr)
 
 
 serve state args = do
@@ -112,7 +113,7 @@ routes args = do
     state <- WS.getState
     zps' <- liftIO $ atomically $ readTVar $ zps state
 
-    reqLogger <- liftIO $ mkRequestLogger def
+    reqLogger <- liftIO $ mkRequestLogger $ def { destination = Handle stderr }
     WS.middleware $ reqLogger
 
     WS.get nextTrackR $ \room -> do

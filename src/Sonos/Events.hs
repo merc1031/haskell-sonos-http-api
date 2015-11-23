@@ -49,7 +49,6 @@ sub :: ZonePlayer
     -> T.Text
     -> IO ()
 sub zp me port event = do
-    print $ "Subscribing to " ++ show zp
     let loc = zpLocation zp
 
     let opts =  defaults & header "CALLBACK" .~ [BSC.pack $ "<http://" ++ me ++ ":" ++ show port ++ "/eventSub>"]
@@ -70,7 +69,6 @@ sub zp me port event = do
                 _ <- async $ do
                     print "Start async renew"
                     let renew' t = do
-                            print $ "Renewing at rate" ++ (show $ t * 1000000)
                             threadDelay $ t * 1000000
                             newT <- renew zp sid timeout event
                             case newT of
@@ -208,14 +206,12 @@ toProperty "LastChange" pc =
 toProperty _ pc = Just $ PropertySimple pc
 
 handleEvent state req body = do
-    print $ requestHeaders req
     let hs = M.fromList $ requestHeaders req
         Just sid = M.lookup "SID" hs
         uuid = fst . T.breakOn "_sub" . snd . T.breakOn "RINCON"
     let speaker = (fromJust $ M.lookup (uuid $ TE.decodeUtf8 sid) $ speakers $ state)
     let event = eventToXML body
     updateSpeaker speaker event
-    putStrLn $ "***EVENT*** " ++ show event
     return event
 
 updateSpeaker speaker event =
@@ -223,7 +219,6 @@ updateSpeaker speaker event =
     in do
         speakerData <- liftIO $ atomically $ readTVar speaker
         let lastChangeM = M.lookup "LastChange" properties
-        putStrLn $ "Trying to update a speaker with event" ++ show lastChangeM
         case lastChangeM of
           Just lastChange -> do
             let sData = case lastChange of
