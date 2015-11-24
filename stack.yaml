@@ -2,6 +2,7 @@ resolver: lts-3.12
 
 packages:
 - '.'
+- 'externals/test-preproc'
 - location:
     git: https://github.com/merc1031/Spock.git
     commit: c13fc9bcade9afe11b008a1c20d9498bcee34d7b
