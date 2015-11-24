@@ -9,7 +9,9 @@ import Control.Concurrent.Async
 import Data.Default
 
 import Control.Concurrent           (threadDelay)
-import Control.Monad                (forever)
+import Control.Monad                ( forever
+                                    , void
+                                    )
 import Options.Applicative          ( Parser
                                     , execParser
                                     , argument
@@ -50,17 +52,17 @@ parseArgs = execParser $ info (helper <*> parseCliArgs) fullDesc
 parseCliArgs :: Parser CliArguments
 parseCliArgs =
     let pandoraEmail :: Parser PandoraEmail
-        pandoraEmail = fmap (PandoraEmail . T.pack) $ strOption
+        pandoraEmail = (PandoraEmail . T.pack) <$> strOption
             ( long "pandora-email"
             <> help "email for pandora"
             )
         pandoraPassword :: Parser PandoraPassword
-        pandoraPassword = fmap (PandoraPassword . T.pack) $ strOption
+        pandoraPassword = (PandoraPassword . T.pack) <$> strOption
             ( long "pandora-password"
             <> help "password for pandora"
             )
         songzaId :: Parser SongzaId
-        songzaId = fmap (SongzaId . T.pack) $ strOption
+        songzaId = (SongzaId . T.pack) <$> strOption
             ( long "songza-id"
             <> help "user id for songza"
             )
@@ -76,15 +78,17 @@ stateStuff topoV = do
             pop
             threadDelay 10000000
     pop
-    async $ forever $ loop
+    async $ forever loop
+
+type FetchResult = (T.Text, (T.Text, T.Text))
 
 dbStuff state args = do
     let MusicDB {..} = mdb state
     putStrLn "Prepping music db"
-    let fetch :: [[(T.Text,(T.Text, T.Text))]]
-              -> (Int -> IO (Int, Int, [(T.Text, (T.Text, T.Text))]))
+    let fetch :: [[FetchResult]]
+              -> (Int -> IO (Int, Int, [FetchResult]))
               -> Int
-              -> IO [[(T.Text, (T.Text, T.Text))]]
+              -> IO [[FetchResult]]
         fetch !xs fn !s = do
             (nr, tm, !res) <- fn s
             if (s + nr) < tm
@@ -121,7 +125,7 @@ dbStuff state args = do
     let loop = do
             pop
             threadDelay $ 3600 * 1000000
-    async $ forever $ loop
+    async $ forever loop
 
 prepState args = do
     zps <- newTVarIO []
@@ -139,12 +143,9 @@ prepState args = do
         state = State {..}
     dbStuff state args
 
-    let s' = do
-            _ <- async $ do
-                print "Async subscribe"
-                mapM_ (\s -> subAll s "192.168.1.137" 5006) zpsI
-            return ()
-    s'
+    void $ async $ do
+        print "Async subscribe"
+        mapM_ (\s -> subAll s "192.168.1.137" 5006) zpsI
     return state
 
 main = do
