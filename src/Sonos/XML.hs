@@ -8,15 +8,16 @@ import Data.Maybe                           ( fromJust)
 import Data.String                          ( fromString
                                             , IsString
                                             )
+import Formatting                           ( stext
+                                            , (%)
+                                            , sformat
+                                            )
 
 import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.Map.Strict            as M
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as TE
-import Formatting                           ( stext
-                                            , (%)
-                                            , sformat
-                                            )
+
 data BrowseContainer = BrowseDefault T.Text
                      | BrowseSpecified T.Text
 

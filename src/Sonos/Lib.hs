@@ -7,15 +7,14 @@
 {-# LANGUAGE TupleSections #-}
 module Sonos.Lib where
 
-import Control.Exception (catch, SomeException)
 import Network.Wreq
 import Control.Concurrent.STM
 import Sonos.Types
 import Sonos.Commands
 import Sonos.XML
 import Text.EditDistance
-import Web.PathPieces (PathPiece(toPathPiece))
 
+import Web.PathPieces                       (PathPiece(toPathPiece))
 import Data.Maybe                           ( fromJust)
 import Sonos.Util                           ( findCoordinatorForIp
                                             , findCoordinators
@@ -25,6 +24,10 @@ import Control.Monad                        ( forever
                                             , void
                                             )
 import Control.Lens                         ( (^?))
+import Formatting                           ( stext
+                                            , (%)
+                                            , sformat
+                                            )
 
 import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.Map.Strict            as M
@@ -35,17 +38,20 @@ import qualified Sonos.Plugins.Pandora      as Pandora
 import qualified Sonos.Plugins.Songza       as Songza
 import qualified HTMLEntities.Builder       as HTML
 import qualified HTMLEntities.Decoder       as HTML
-import Formatting                           ( stext
-                                            , (%)
-                                            , sformat
-                                            )
 
 getZPs = atomically . readTVar . zps
 
 lookupDistance :: T.Text
                -> M.Map T.Text a
                -> a
-lookupDistance s m = snd $ M.findMin $ M.fromList $ M.elems $ M.mapWithKey (\k v -> (levenshteinDistance defaultEditCosts (T.unpack k) (T.unpack s), v)) m
+lookupDistance s m =
+    let lev = levenshteinDistance defaultEditCosts
+    in snd
+     $ M.findMin
+     $ M.fromList
+     $ M.elems
+     $ M.mapWithKey (\k v -> ( lev (T.unpack k) (T.unpack s), v))
+                    m
 
 
 getRoom :: [ZonePlayer]
@@ -213,20 +219,10 @@ playFavorite state args host like = do
     let m = M.fromList cd
         (d, md) = lookupDistance (T.pack like) m
 
---    let avMessage = setAVTransportURITemplate d (TL.toStrict $ TLB.toLazyText $ HTML.text md)
     let avMessage = setAVTransportURITemplate (TL.toStrict $ TLB.toLazyText $ HTML.text d) (TL.toStrict $ TLB.toLazyText $ HTML.text md)
 
-    print $ avMessage
-    r <- avSoapAction addr avMessage `catch` (\x -> (putStrLn $ "add " ++ show (x :: SomeException)) >> return undefined)
-    r' <- avSoapAction addr playTemplate `catch` (\x -> (putStrLn $ "play " ++ show (x :: SomeException)) >> return undefined)
-    
-    putStrLn $ ""
-    putStrLn $ ""
-    putStrLn $ "***Response" ++ show r
-    putStrLn $ ""
-    putStrLn $ ""
-    putStrLn $ "***Response" ++ show r'
-
+    avSoapAction addr avMessage
+    avSoapAction addr playTemplate
 
     return ()
 
@@ -407,9 +403,7 @@ playPandoraStationLike state args@(CliArguments{..}) host like = do
         avMessage = setAVTransportURITemplate (pandoraRadioFmt stationId)
                                               metadata
 
-    putStrLn $ show avMessage
     avSoapAction addr avMessage
-    putStrLn "Time to play"
     avSoapAction addr playTemplate
 
 
@@ -439,9 +433,7 @@ playSongzaStationLike state args@(CliArguments{..}) host like = do
         avMessage = setAVTransportURITemplate (Songza.mkUri stationId)
                                               metadata
 
-    putStrLn $ show avMessage
     avSoapAction addr avMessage
-    putStrLn "Time to play"
     avSoapAction addr playTemplate
 
 

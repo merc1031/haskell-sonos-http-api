@@ -15,12 +15,14 @@ import Control.Concurrent.Async
 import Text.XML
 import Text.XML.Cursor
 import Debug.Trace
+
 import Data.String                          (IsString)
 import Data.Maybe                           (fromJust)
 import Network.Wai                          (Request (..))
 import Control.Lens                         ((^?), (.~), (&))
 import Data.Char                            (toLower)
 import Control.Concurrent                   (threadDelay)
+
 import qualified Data.ByteString.Char8      as BSC
 import qualified Data.ByteString            as BS
 import qualified Data.Map.Strict            as M

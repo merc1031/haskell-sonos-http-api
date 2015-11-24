@@ -41,8 +41,8 @@ import Sonos.Types                  ( CliArguments(..)
 import Sonos.Events                 (subAll)
 import Sonos.Lib                    (browseContentDirectory)
 
-import qualified Data.Text as T
-import qualified Data.Map.Strict as M
+import qualified Data.Text          as T
+import qualified Data.Map.Strict    as M
 
 parseArgs :: IO CliArguments
 parseArgs = execParser $ info (helper <*> parseCliArgs) fullDesc

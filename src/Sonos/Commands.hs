@@ -2,14 +2,14 @@
 {-# LANGUAGE RecordWildCards #-}
 module Sonos.Commands where
 
-import Control.Exception (catch, SomeException)
 import Network.Wreq
 import Data.String.Utils
 import Sonos.Types
 import Sonos.XML
-import Control.Monad (when)
 
 import Text.XML
+
+import Control.Monad                        (when)
 import Data.String                          ( fromString
                                             , IsString
                                             )
@@ -18,6 +18,10 @@ import Control.Lens                         ( (^?)
                                             , (^?!)
                                             , (.~)
                                             , (&)
+                                            )
+import Formatting                           ( stext
+                                            , (%)
+                                            , sformat
                                             )
 
 import qualified Data.ByteString.Lazy       as BSL
@@ -28,10 +32,6 @@ import qualified Data.Text.Lazy             as TL
 import qualified Data.Text.Lazy.Builder     as TLB
 import qualified HTMLEntities.Builder       as HTML
 import qualified HTMLEntities.Decoder       as HTML
-import Formatting                           ( stext
-                                            , (%)
-                                            , sformat
-                                            )
 
 fmtRincon = sformat ("x-rincon:" % stext)
 fmtRinconQueue = sformat ("x-rincon-queue:" % stext % "#0")
