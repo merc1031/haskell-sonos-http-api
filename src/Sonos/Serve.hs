@@ -154,18 +154,18 @@ routes args = do
             TIO.putStrLn $ "Room was: " <> (unRoom room)
             playFavorite state args room' like
         return ()
---    WS.get playLikeR $ \room like -> do
---        let room' = getRoom zps' room
---        liftIO $ do
---            TIO.putStrLn $ "Room was: " <> (unRoom room)
---            queueAndPlayTrackLike state args room' like
---        return ()
---    WS.get enqueueLikeR $ \room like -> do
---        let room' = getRoom zps' room
---        liftIO $ do
---            TIO.putStrLn $ "Room was: " <> (unRoom room)
---            queueTrackLike state args room' like
---        return ()
+    WS.get playLikeR $ \room like -> do
+        let room' = getRoom zps' room
+        liftIO $ do
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
+            queueAndPlayTrackLike state args room' like
+        return ()
+    WS.get enqueueLikeR $ \room like -> do
+        let room' = getRoom zps' room
+        liftIO $ do
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
+            queueTrackLike state args room' like
+        return ()
     WS.get playLikeArtistR $ \room like -> do
         let room' = getRoom zps' room
         liftIO $ do

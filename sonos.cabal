@@ -22,6 +22,8 @@ library
                        , Sonos.Serve
                        , Sonos.Main
                        , Sonos.Events
+                       , Sonos.XML
+                       , Sonos.Commands
                        , Sonos.Plugins.Pandora
                        , Sonos.Plugins.Pandora.Crypt
                        , Sonos.Plugins.Pandora.Types
