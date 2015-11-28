@@ -83,9 +83,16 @@ getTrackNum :: BSL.ByteString
             -> Int
 getTrackNum body =
     let cursor = fromDocument $ parseLBS_ def body
-    in read $ T.unpack $ head $ cursor $/ element "{http://schemas.xmlsoap.org/soap/envelope/}Body"
-                                       &/ element "{urn:schemas-upnp-org:service:AVTransport:1}AddURIToQueueResponse"
-                                       &/ element "FirstTrackNumberEnqueued"
-                                       &// content
+        [elem] = cursor $/ laxElement "Body"
+                      &/ laxElement "AddURIToQueueResponse"
+        tread = read . T.unpack
+        queueLength = case elem $/ element "NewQueueLength" &// content of
+                        [] -> 0
+                        [ql] -> tread ql
+        numTracksAdded = case elem $/ element "NumTracksAdded" &// content of
+                           [] -> 0
+                           [nta] -> tread nta
+
+    in (queueLength - numTracksAdded) + 1
 
 

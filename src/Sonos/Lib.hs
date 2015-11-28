@@ -290,6 +290,7 @@ queueAndPlayArtistLike state args host like = do
     uuid <- fetchUUID addr
     let avMessage = setAVTransportURITemplate (fmtRinconQueue uuid) ""
 
+    putStrLn $ "First track: " ++ show trackNo
     avSoapAction addr avMessage
     avSoapAction addr (seekTrackTemplate trackNo)
     avSoapAction addr playTemplate

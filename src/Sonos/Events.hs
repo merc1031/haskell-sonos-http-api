@@ -256,7 +256,9 @@ parseXMLMetaData body
             radioShowMd = case item $/ laxElement "radioShowMd" &.// content of
                             [] -> ""
                             [r] -> r
-            [albumArtURI] = item $/ laxElement "albumArtURI" &.// content
+            albumArtURI = case item $/ laxElement "albumArtURI" &.// content of
+                            [] -> ""
+                            [aa] -> aa
             title = case item $/ laxElement "title" &.// content of
                       [] -> ""
                       [t] -> t
