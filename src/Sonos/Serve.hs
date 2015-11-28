@@ -61,6 +61,13 @@ enqueueLikeR = "like" WS.<//> "enqueue" WS.<//> WS.var WS.<//> WS.var
 playLikeArtistR :: WS.Path '[Room, String]
 playLikeArtistR = "likeArtist" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
 
+playLikeAlbumR :: WS.Path '[Room, String]
+playLikeAlbumR = "likeAlbum" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
+
+playLikeTrackR :: WS.Path '[Room, String]
+playLikeTrackR = "likeTrack" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
+
+
 enqueueLikeArtistR :: WS.Path '[Room, String]
 enqueueLikeArtistR = "likeArtist" WS.<//> "enqueue" WS.<//> WS.var WS.<//> WS.var
 
@@ -69,6 +76,10 @@ playPandoraRadioLikeR = "pandora" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
 
 playSongzaRadioLikeR :: WS.Path '[Room, String]
 playSongzaRadioLikeR = "songza" WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
+
+playRadioLikeR :: WS.Path '[T.Text, Room, String]
+playRadioLikeR = "radio" WS.<//> WS.var WS.<//> "play" WS.<//> WS.var WS.<//> WS.var
+
 
 browseContentDirectoryR :: WS.Path '[T.Text, Filter, Int, Int, Sort]
 browseContentDirectoryR = "browse" WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var
@@ -170,13 +181,25 @@ routes args = do
         let room' = getRoom zps' room
         liftIO $ do
             TIO.putStrLn $ "Room was: " <> (unRoom room)
-            queueAndPlayArtistLike state args room' like
+            queueAndPlayLike state args room' artists like
+        return ()
+    WS.get playLikeAlbumR $ \room like -> do
+        let room' = getRoom zps' room
+        liftIO $ do
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
+            queueAndPlayLike state args room' albums like
+        return ()
+    WS.get playLikeTrackR $ \room like -> do
+        let room' = getRoom zps' room
+        liftIO $ do
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
+            queueAndPlayLike state args room' tracks like
         return ()
     WS.get enqueueLikeArtistR $ \room like -> do
         let room' = getRoom zps' room
         liftIO $ do
             TIO.putStrLn $ "Room was: " <> (unRoom room)
-            queueArtistLike state args room' like
+            queueLike state args room' artists like
         return ()
     WS.get playR $ \room -> do
         let room' = getRoom zps' room
@@ -245,6 +268,18 @@ routes args = do
         liftIO $ do
             TIO.putStrLn $ "Room was: " <> (unRoom room)
             playSongzaStationLike state args room' like
+        return ()
+    WS.get playRadioLikeR $ \radio room like -> do
+        let room' = getRoom zps' room
+        liftIO $ do
+            TIO.putStrLn $ "Radio was: " <> (radio)
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
+            let radioList =
+                    M.fromList [ ("pandora", playPandoraStationLike state args room' like)
+                               , ("songza", playSongzaStationLike state args room' like)
+                               ]
+                closestRadio = lookupDistance radio radioList
+            closestRadio
         return ()
 
     WS.get browseContentDirectoryR $ \cat filt s c so -> do

@@ -273,16 +273,17 @@ queueTrackLike state args host like = do
 
     mapM (\t -> (\r -> r ^? responseBody) <$> avSoapAction addr (soapMessage $ snd t)) tracks'
 
-queueAndPlayArtistLike :: State
-                       -> CliArguments
-                       -> ZonePlayer
-                       -> String
-                       -> IO ()
-queueAndPlayArtistLike state args host like = do
-    putStrLn $ "queueAndPlayArtistLike " ++ show like
+queueAndPlayLike :: State
+                 -> CliArguments
+                 -> ZonePlayer
+                 -> (MusicDB -> TVar (M.Map T.Text (T.Text, T.Text)))
+                 -> String
+                 -> IO ()
+queueAndPlayLike state args host selector like = do
+    putStrLn $ "queueAndPlayLike " ++ show like
     zps <- getZPs state
     let coord = findCoordinatorForIp (zpLocation host) zps
-    queuedBodys <- queueArtistLike state args host like
+    queuedBodys <- queueLike state args host selector like
     let qd = getQueueData $ fromJust $ head $ queuedBodys
         trackNo = sqdFirstTrackOfNewQueue qd
         addr = let l = zpLocation coord
@@ -301,16 +302,17 @@ queueAndPlayArtistLike state args host like = do
 
     return ()
 
-queueArtistLike :: State
-                -> CliArguments
-                -> ZonePlayer
-                -> String
-                -> IO [Maybe BSL.ByteString]
-queueArtistLike state args host like = do
+queueLike :: State
+          -> CliArguments
+          -> ZonePlayer
+          -> (MusicDB -> TVar (M.Map T.Text (T.Text, T.Text)))
+          -> String
+          -> IO [Maybe BSL.ByteString]
+queueLike state args host selector like = do
     zps <- getZPs state
     let coord = findCoordinatorForIp (zpLocation host) zps
-    artistsM <- atomically $ readTVar $ artists $ mdb state
-    let (tracks, tacksMD) = lookupDistance (T.pack like) artistsM
+    selectM <- atomically $ readTVar $ selector $ mdb state
+    let (tracks, tacksMD) = lookupDistance (T.pack like) selectM
         tracks' = [(like, tracks)]
     putStrLn $ "Tracks are:" ++ show tracks'
 
@@ -382,6 +384,10 @@ getState state args host = do
 
 pandoraRadioFmt = sformat ("pndrradio:" % stext % "?sn=6")
 
+headErr m l = case l of
+    [] -> error m
+    _ -> head l
+
 playPandoraStationLike :: State
                        -> CliArguments
                        -> ZonePlayer
@@ -396,7 +402,7 @@ playPandoraStationLike state args@(CliArguments{..}) host like = do
     pw <- Pandora.login (unPandoraEmail caPandoraEmail)
                         (unPandoraPassword caPandoraPassword)
     st <- Pandora.searchStation pw $ T.pack like
-    st' <- Pandora.createStation pw (Pandora.artistMusicToken $ head $ Pandora.msrArtists st)
+    st' <- Pandora.createStation pw (Pandora.artistMusicToken $ headErr "No pandora artists" $ Pandora.msrArtists st)
 
     let station = Pandora.csrStation st'
         stationId = Pandora.sStationId station
