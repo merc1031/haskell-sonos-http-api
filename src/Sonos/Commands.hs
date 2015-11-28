@@ -109,6 +109,21 @@ grcTransportNS = sformat ("xmlns:u=\"" % stext % "\"") grcTransportAction
 
 type Template = (T.Text, T.Text)
 
+fromPlayMode PlayMode {..} = fromPlayMode' shuffle repeat
+    where
+        fromPlayMode' False False = "NORMAL"
+        fromPlayMode' True False = "SHUFFLE_NOREPEAT"
+        fromPlayMode' False True = "REPEAT_ALL"
+        fromPlayMode' True True =  "SHUFFLE"
+
+setPlayModeTemplate :: PlayMode
+                    -> Template
+setPlayModeTemplate playMode =
+    let a = "SetPlayMode"
+    in (a, avTransportTemplate a
+                               [ ("InstanceID", "0")
+                               , ("NewPlayMode", fromPlayMode playMode)
+                               ])
 nextTrackTemplate :: Template
 nextTrackTemplate =
     let a = "Next"

@@ -36,6 +36,14 @@ data Filter = FAll | FNone
 data Sort = SAll | SNone
     deriving Show
 
+data SonosQueueData = SonosQueueData
+    { sqdNewQueueLength :: Int
+    , sqdNumTracksAdded :: Int
+    , sqdFirstTrackNumberEnqueued :: Int
+    , sqdFirstTrackOfNewQueue :: Int
+    } deriving Show
+
+
 instance PathPiece Filter where
     fromPathPiece text
         | text == "*" = Just FAll

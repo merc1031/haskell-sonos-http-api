@@ -283,15 +283,18 @@ queueAndPlayArtistLike state args host like = do
     zps <- getZPs state
     let coord = findCoordinatorForIp (zpLocation host) zps
     queuedBodys <- queueArtistLike state args host like
-    let trackNo = getTrackNum $ fromJust $ head $ queuedBodys
+    let qd = getQueueData $ fromJust $ head $ queuedBodys
+        trackNo = sqdFirstTrackOfNewQueue qd
         addr = let l = zpLocation coord
                in urlFmt (lUrl l) (lPort l)
 
     uuid <- fetchUUID addr
     let avMessage = setAVTransportURITemplate (fmtRinconQueue uuid) ""
 
+    putStrLn $ "QD: " ++ show qd
     putStrLn $ "First track: " ++ show trackNo
     avSoapAction addr avMessage
+    avSoapAction addr (setPlayModeTemplate PlayMode { repeat = False, shuffle = False, crossfade = False })
     avSoapAction addr (seekTrackTemplate trackNo)
     avSoapAction addr playTemplate
 

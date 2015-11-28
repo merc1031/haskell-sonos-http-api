@@ -3,6 +3,7 @@ module Sonos.XML where
 
 import Text.XML
 import Text.XML.Cursor
+import Sonos.Types
 
 import Data.Maybe                           ( fromJust)
 import Data.String                          ( fromString
@@ -78,6 +79,32 @@ getUUID body =
     in T.drop 5 $ head $ cursor $/ element (fromString $ ns ++ "device")
                                 &/ element (fromString $ ns ++ "UDN")
                                 &// content
+
+getQueueData :: BSL.ByteString
+             -> SonosQueueData
+getQueueData body = 
+    let cursor = fromDocument $ parseLBS_ def body
+        [elem] = cursor $/ laxElement "Body"
+                      &/ laxElement "AddURIToQueueResponse"
+        tread = read . T.unpack
+        queueLength = case elem $/ element "NewQueueLength" &// content of
+                        [] -> 0
+                        [ql] -> tread ql
+        numTracksAdded = case elem $/ element "NumTracksAdded" &// content of
+                           [] -> 0
+                           [nta] -> tread nta
+        firstTrackNumberEnq = case elem $/ element "FirstTrackNumberEnqueued" &// content of
+                           [] -> 0
+                           [ftn] -> tread ftn
+
+    in SonosQueueData {
+          sqdNewQueueLength = queueLength
+        , sqdNumTracksAdded = numTracksAdded
+        , sqdFirstTrackNumberEnqueued = firstTrackNumberEnq
+        , sqdFirstTrackOfNewQueue = (queueLength - numTracksAdded) + 1
+        }
+
+
 
 getTrackNum :: BSL.ByteString
             -> Int
