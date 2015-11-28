@@ -33,6 +33,14 @@ case_avtEvent = do
         exp = "x-sonosapi-radio:radio-artist%3a565?sid=242&flags=8224&sn=4"
     assertEqual "Failed AVT Event" exp tAVTransportURI
 
+case_volEvent = do
+    let (Event props) = eventToXML volEvent
+        Just prop = M.lookup "GroupVolume" props
+        Just (PropertySimple v) = prop
+        exp = "15"
+    assertEqual "Failed PropSet Vol Event" exp v
+
+
 
 tests = $(testGroupGenerator)
 

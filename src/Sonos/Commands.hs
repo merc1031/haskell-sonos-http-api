@@ -23,10 +23,6 @@ import Formatting                           ( stext
                                             , (%)
                                             , sformat
                                             )
-import System.IO                            ( hPutStrLn
-                                            , stderr
-                                            )
-
 import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.ByteString.Char8      as BSC
 import qualified Data.Text                  as T

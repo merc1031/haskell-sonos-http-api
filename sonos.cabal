@@ -24,6 +24,7 @@ library
                        , Sonos.Events
                        , Sonos.XML
                        , Sonos.Commands
+                       , Sonos.Debug
                        , Sonos.Plugins.Pandora
                        , Sonos.Plugins.Pandora.Crypt
                        , Sonos.Plugins.Pandora.Types
@@ -84,6 +85,7 @@ test-suite sonos-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      tests
   main-is:             MainTestSuite.hs
+  other-modules:       Sonos.XMLTest
   build-depends:       base
                      , sonos
                      , HUnit

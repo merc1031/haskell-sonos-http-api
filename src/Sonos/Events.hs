@@ -23,6 +23,8 @@ import Control.Lens                         ((^?), (.~), (&))
 import Data.Char                            (toLower)
 import Control.Concurrent                   (threadDelay)
 
+import Sonos.Debug                          (putStrLnErr)
+
 import qualified Data.ByteString.Char8      as BSC
 import qualified Data.ByteString            as BS
 import qualified Data.Map.Strict            as M
@@ -211,14 +213,20 @@ handleEvent state req body = do
     let hs = M.fromList $ requestHeaders req
         Just sid = M.lookup "SID" hs
         uuid = fst . T.breakOn "_sub" . snd . T.breakOn "RINCON"
-    let speaker = (fromJust $ M.lookup (uuid $ TE.decodeUtf8 sid) $ speakers $ state)
+        speakerIdent = uuid $ TE.decodeUtf8 sid
+        speaker = (fromJust $ M.lookup speakerIdent $ speakers state)
+
+    zonePlayers <- atomically $ readTVar (zps state)
+
+    let zp = fromJust $ M.lookup speakerIdent $ M.fromList $ map (\z -> (zpUUID z, z)) zonePlayers
     let event = eventToXML body
-    updateSpeaker speaker event
+    updateSpeaker speaker zp event
     return event
 
-updateSpeaker speaker event =
+updateSpeaker speaker zp event =
     let Event properties = event
     in do
+        liftIO $ putStrLnErr $ "Updating speaker data for: " ++ show (zpName zp)
         speakerData <- liftIO $ atomically $ readTVar speaker
         let lastChangeM = M.lookup "LastChange" properties
         case lastChangeM of
