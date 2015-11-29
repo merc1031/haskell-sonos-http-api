@@ -26,6 +26,7 @@ import Control.Monad                        ( forever
 import Control.Lens                         ( (^?))
 import Formatting                           ( stext
                                             , (%)
+                                            , int
                                             , sformat
                                             )
 
@@ -139,6 +140,20 @@ groupVolume state args host op value = do
     let newVol = modVolume ss op value
 
     grcSoapAction addr (groupVolumeTemplate newVol)
+    return ()
+
+clearQueue :: State
+           -> CliArguments
+           -> ZonePlayer
+           -> IO ()
+clearQueue state args host = do
+    zps <- getZPs state
+    let coord = findCoordinatorForIp (zpLocation host) zps
+        addr = let l = zpLocation coord
+               in urlFmt (lUrl l) (lPort l)
+
+
+    void $ avSoapAction' addr removeAllTracksFromQueueTemplate
     return ()
 
 play :: State
@@ -499,3 +514,18 @@ browseMetaData state args cat = do
 
     putStrLn $ show body
     return structured
+
+speakerInfo :: State
+            -> CliArguments
+            -> ZonePlayer
+            -> IO AlexaSpeakResponse
+speakerInfo state args host = do
+    speakerState <- getSpeakerState state host
+    let trackFormat TrackState {..} = sformat (stext % " by " % stext % " from the album " % stext) tsTitle tsArtist tsAlbum
+        sentences =
+            [ sformat ("The current track is " % stext) (trackFormat $ ssCurrentTrack speakerState)
+            , sformat ("The next track is " % stext) (trackFormat $ ssNextTrack speakerState)
+            , sformat ("Volume in the " % stext % " is " % int) (zpName host) (ssVolume speakerState)
+            ]
+        words = T.intercalate ". " sentences
+    return $ AlexaSpeakResponse $ Lit words

@@ -140,6 +140,28 @@ instance ToJSON PlayMode where
             , "crossfade" .= crossfade
         ]
 
+data OutputSpeech = Lit T.Text | SSML T.Text
+    deriving Show
+
+instance ToJSON OutputSpeech where
+    toJSON (Lit words) = object [
+                "speech" .= words
+              , "type" .= ("PlainText" :: T.Text)
+        ]
+    toJSON (SSML ssml) = object [
+                "speech" .= ssml
+              , "type" .= ("SSML" :: T.Text)
+        ]
+
+data AlexaSpeakResponse = AlexaSpeakResponse
+    { asrOutputSpeech :: OutputSpeech
+    } deriving Show
+
+instance ToJSON AlexaSpeakResponse where
+    toJSON (AlexaSpeakResponse {..}) = object [
+              "outputSpeech" .= asrOutputSpeech
+        ]
+
 data SpeakerState = SpeakerState
     { ssCurrentTrack :: !TrackState
     , ssNextTrack :: !TrackState

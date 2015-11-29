@@ -45,6 +45,10 @@ playallR = "playall"
 pauseallR :: WS.Path '[]
 pauseallR = "pauseall"
 
+clearQueueR :: WS.Path '[Room]
+clearQueueR = "clearQueue" WS.<//> WS.var
+
+
 volumeR :: WS.Path '[Room, Op, Int]
 volumeR = "volume" WS.<//> WS.var WS.<//> WS.var WS.<//> WS.var
 
@@ -95,6 +99,9 @@ previousTrackR = "previous" WS.<//> WS.var
 
 stateR :: WS.Path '[Room]
 stateR = "state" WS.<//> WS.var
+
+speakerInfoR :: WS.Path '[Room]
+speakerInfoR = "info" WS.<//> WS.var
 
 listR :: WS.Path '[]
 listR = "list"
@@ -159,6 +166,10 @@ routes args = do
         let room' = getRoom zps' room
         res <- liftIO $ getState state args room'
         WS.json res
+    WS.get speakerInfoR $ \room -> do
+        let room' = getRoom zps' room
+        res <- liftIO $ speakerInfo state args room'
+        WS.json res
     WS.get playFavoriteR $ \room like -> do
         let room' = getRoom zps' room
         liftIO $ do
@@ -200,6 +211,12 @@ routes args = do
         liftIO $ do
             TIO.putStrLn $ "Room was: " <> (unRoom room)
             queueLike state args room' artists like
+        return ()
+    WS.get clearQueueR $ \room -> do
+        let room' = getRoom zps' room
+        liftIO $ do
+            TIO.putStrLn $ "Room was: " <> (unRoom room)
+            clearQueue state args room'
         return ()
     WS.get playR $ \room -> do
         let room' = getRoom zps' room

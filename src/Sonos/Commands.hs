@@ -120,6 +120,13 @@ setPlayModeTemplate playMode =
                                [ ("InstanceID", "0")
                                , ("NewPlayMode", fromPlayMode playMode)
                                ])
+
+removeAllTracksFromQueueTemplate :: Template
+removeAllTracksFromQueueTemplate =
+    let a = "RemoveAllTracksFromQueue"
+    in (a, avTransportTemplate a
+                               [ ("InstanceID", "0")])
+
 nextTrackTemplate :: Template
 nextTrackTemplate =
     let a = "Next"
