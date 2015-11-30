@@ -82,6 +82,10 @@ stateStuff topoV = do
     pop
     async $ forever loop
 
+banner m =
+    let stars = replicate 22 '*'
+    in stars ++ m ++ stars
+
 dbStuff state args = do
     let MusicDB {..} = mdb state
     putStrLn "Prepping music db"
@@ -95,33 +99,33 @@ dbStuff state args = do
               then fetch (res:xs) fn (s + nr)
               else return $ res:xs
     let pop = do
-            putStrLn "**********************Refreshing music db**********************"
+            putStrLn $ banner "Refreshing music db"
 
-            putStrLn "**********************Refreshing artists**********************"
+            putStrLn $ banner "Refreshing artists"
             allArtists <- fetch [[]] (\s -> do
                                 putStrLn $ "Fetching artists offset at" ++ show s
                                 browseContentDirectory state args "A:ARTIST" FAll s 250 SAll) 0
             let !mapArtists = M.fromList $ map (\(k,v) -> (T.toLower k, v)) $ concat allArtists
             atomically $ swapTVar artists mapArtists
-            putStrLn "**********************Refreshed artists**********************"
+            putStrLn $ banner "Refreshed artists"
 
-            putStrLn "**********************Refreshing albums**********************"
+            putStrLn $ banner "Refreshing albums"
             allAlbums <- fetch [[]] (\s -> do
                                putStrLn $ "Fetching albums offset at" ++ show s
                                browseContentDirectory state args "A:ALBUM" FAll s 250 SAll) 0
             let !mapAlbums = M.fromList $ map (\(k,v) -> (T.toLower k, v)) $ concat allAlbums
             atomically $ swapTVar albums mapAlbums
-            putStrLn "**********************Refreshed albums**********************"
+            putStrLn $ banner "Refreshed albums"
 
-            putStrLn "**********************Refreshing tracks**********************"
+            putStrLn $ banner "Refreshing tracks"
             allTracks <- fetch [[]] (\s -> do
                                putStrLn $ "Fetching tracks offset at" ++ show s
                                browseContentDirectory state args "A:TRACKS" FAll s 250 SAll) 0
             let !mapTracks = M.fromList $ map (\(k,v) -> (T.toLower k, v)) $ concat allTracks
             atomically $ swapTVar tracks mapTracks
-            putStrLn "**********************Refreshed tracks**********************"
+            putStrLn $ banner "Refreshed tracks"
 
-            putStrLn "**********************Refreshed music db**********************"
+            putStrLn $ banner "Refreshed music db"
     let loop = do
             pop
             threadDelay $ 3600 * 1000000
