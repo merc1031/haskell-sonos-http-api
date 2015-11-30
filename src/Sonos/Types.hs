@@ -61,10 +61,18 @@ instance PathPiece Sort where
     toPathPiece SNone = "_"
 
 
+data DBData = DBData
+    { dbTitle :: T.Text
+    , dbLink :: T.Text
+    , dbMD :: T.Text
+    } deriving Show
+
+type FetchResult = (T.Text, DBData)
+
 data MusicDB = MusicDB
-    { artists :: TVar (M.Map T.Text (T.Text, T.Text))
-    , albums :: TVar (M.Map T.Text (T.Text, T.Text))
-    , tracks :: TVar (M.Map T.Text (T.Text, T.Text))
+    { artists :: TVar (M.Map T.Text DBData)
+    , albums :: TVar (M.Map T.Text DBData)
+    , tracks :: TVar (M.Map T.Text DBData)
     }
 
 data State = State

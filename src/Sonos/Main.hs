@@ -39,6 +39,8 @@ import Sonos.Types                  ( CliArguments(..)
                                     , PandoraEmail(..)
                                     , PandoraPassword(..)
                                     , SongzaId(..)
+                                    , FetchResult
+                                    , DBData(..)
                                     )
 import Sonos.Events                 (subAll)
 import Sonos.Lib                    (browseContentDirectory)
@@ -79,8 +81,6 @@ stateStuff topoV = do
             threadDelay 10000000
     pop
     async $ forever loop
-
-type FetchResult = (T.Text, (T.Text, T.Text))
 
 dbStuff state args = do
     let MusicDB {..} = mdb state

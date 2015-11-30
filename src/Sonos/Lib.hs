@@ -232,7 +232,7 @@ playFavorite state args host like = do
                                        1000
                                        SNone
     let m = M.fromList cd
-        (d, md) = lookupDistance (T.pack like) m
+        (DBData t d md) = lookupDistance (T.pack like) m
 
     let avMessage = setAVTransportURITemplate (TL.toStrict $ TLB.toLazyText $ HTML.text d) (TL.toStrict $ TLB.toLazyText $ HTML.text md)
 
@@ -274,7 +274,7 @@ queueTrackLike state args host like = do
     zps <- getZPs state
     let coord = findCoordinatorForIp (zpLocation host) zps
     tracksM <- atomically $ readTVar $ tracks $ mdb state
-    let (tracks, tacksMD) = lookupDistance (T.pack like) tracksM
+    let (DBData t tracks tracksMD) = lookupDistance (T.pack like) tracksM
         tracks' = [(like, tracks)]
     putStrLn $ "Tracks are:" ++ show tracks'
 
@@ -291,7 +291,7 @@ queueTrackLike state args host like = do
 queueAndPlayLike :: State
                  -> CliArguments
                  -> ZonePlayer
-                 -> (MusicDB -> TVar (M.Map T.Text (T.Text, T.Text)))
+                 -> (MusicDB -> TVar (M.Map T.Text DBData))
                  -> String
                  -> IO ()
 queueAndPlayLike state args host selector like = do
@@ -320,14 +320,14 @@ queueAndPlayLike state args host selector like = do
 queueLike :: State
           -> CliArguments
           -> ZonePlayer
-          -> (MusicDB -> TVar (M.Map T.Text (T.Text, T.Text)))
+          -> (MusicDB -> TVar (M.Map T.Text DBData))
           -> String
           -> IO [Maybe BSL.ByteString]
 queueLike state args host selector like = do
     zps <- getZPs state
     let coord = findCoordinatorForIp (zpLocation host) zps
     selectM <- atomically $ readTVar $ selector $ mdb state
-    let (tracks, tacksMD) = lookupDistance (T.pack like) selectM
+    let (DBData t tracks tracksMD) = lookupDistance (T.pack like) selectM
         tracks' = [(like, tracks)]
     putStrLn $ "Tracks are:" ++ show tracks'
 
@@ -471,7 +471,7 @@ browseContentDirectory :: State
                        -> Int -- Start
                        -> Int -- Count
                        -> Sort --sort criteria
-                       -> IO (Int, Int, [(T.Text, (T.Text, T.Text))])
+                       -> IO (Int, Int, [(T.Text, DBData)])
 browseContentDirectory state args cat filt s c sor = do
     zps <- getZPs state
     let coord = head zps
@@ -497,7 +497,7 @@ browseContentDirectory state args cat filt s c sor = do
 browseMetaData :: State
                -> CliArguments
                -> T.Text -- Category A:ARTIST A:ALBUM A:TRACK
-               -> IO (Int, Int, [(T.Text, (T.Text, T.Text))])
+               -> IO (Int, Int, [(T.Text, DBData)])
 browseMetaData state args cat = do
     zps <- getZPs state
     let coord = head zps
@@ -521,7 +521,11 @@ speakerInfo :: State
             -> IO AlexaSpeakResponse
 speakerInfo state args host = do
     speakerState <- getSpeakerState state host
-    let trackFormat TrackState {..} = sformat (stext % " by " % stext % " from the album " % stext) tsTitle tsArtist tsAlbum
+    let trackFormat TrackState {..} =
+            sformat (stext % " by " % stext % " from the album " % stext) 
+                    tsTitle
+                    tsArtist
+                    tsAlbum
         sentences =
             [ sformat ("The current track is " % stext) (trackFormat $ ssCurrentTrack speakerState)
             , sformat ("The next track is " % stext) (trackFormat $ ssNextTrack speakerState)

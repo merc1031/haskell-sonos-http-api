@@ -38,7 +38,7 @@ lookupWrapper (BrowseDefault k) = fromJust
 
 browsedContent :: BrowseContainer
                -> BSL.ByteString
-               -> (Int, Int, [(T.Text, (T.Text, T.Text))])
+               -> (Int, Int, [(T.Text, DBData)])
 browsedContent typeKey body =
     let cursor = fromDocument $ parseLBS_ def body
         wrapper = lookupWrapper typeKey
@@ -67,7 +67,7 @@ browsedContent typeKey body =
                 resMD = case elem $/ laxElement "resMD" &// content of
                     [] -> ""
                     m -> head m
-            in (title, (link, resMD))
+            in (title, DBData title link resMD)
     in (read $ T.unpack numReturned, read $ T.unpack totalMatches, res)
 
 
