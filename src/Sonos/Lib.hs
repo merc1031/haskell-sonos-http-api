@@ -29,6 +29,7 @@ import Formatting                           ( stext
                                             , int
                                             , sformat
                                             )
+import Data.Char                            (toLower, isAlphaNum)
 
 import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.Map.Strict            as M
@@ -45,14 +46,20 @@ getZPs = atomically . readTVar . zps
 lookupDistance :: T.Text
                -> M.Map T.Text a
                -> a
-lookupDistance s m =
+lookupDistance s m = snd $ lookupDistance' s m
+
+lookupDistance' :: T.Text
+               -> M.Map T.Text a
+               -> (Int, a)
+lookupDistance' s m =
     let lev = levenshteinDistance defaultEditCosts
-    in snd
-     $ M.findMin
+        clean t = T.map toLower $ T.filter isAlphaNum t
+    in M.findMin
      $ M.fromList
      $ M.elems
-     $ M.mapWithKey (\k v -> ( lev (T.unpack k) (T.unpack s), v))
+     $ M.mapWithKey (\k v -> ( lev (T.unpack $ clean k) (T.unpack $ clean s), v))
                     m
+
 
 
 getRoom :: [ZonePlayer]
