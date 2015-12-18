@@ -40,6 +40,7 @@ import qualified Sonos.Plugins.Pandora      as Pandora
 import qualified Sonos.Plugins.Songza       as Songza
 import qualified HTMLEntities.Builder       as HTML
 import qualified HTMLEntities.Decoder       as HTML
+import qualified Data.List                  as L
 
 getZPs = atomically . readTVar . zps
 
@@ -53,7 +54,21 @@ lookupDistance' :: T.Text
                -> (Int, a)
 lookupDistance' s m =
     let lev = levenshteinDistance defaultEditCosts
-        clean t = T.map toLower $ T.filter isAlphaNum t
+        clean t = T.filter isAlphaNum
+                $ dropCrap
+                $ T.map toLower t
+        mkArticle article = map T.pack [ " " ++ article ++ " "
+                                       , " " ++ article
+                                       , article ++ " "
+                                       ]
+        dropCrap t = foldr (\s a -> T.replace s "" a) t
+                   $ concatMap mkArticle [ "and"
+                                         , "the"
+                                         , "an"
+                                         , "a"
+                                         , "it"
+                                         , "of"
+                                         ]
     in M.findMin
      $ M.fromList
      $ M.elems

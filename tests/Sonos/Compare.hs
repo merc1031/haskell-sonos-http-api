@@ -14,6 +14,7 @@ import Test.HUnit (Assertion, assertEqual, assertFailure)
 import Control.Monad (forM, forM_)
 
 import qualified Data.Map.Strict as M
+import qualified Data.Text as T
 import Sonos.Events
 import Sonos.Types
 import Sonos.Lib (lookupDistance')
@@ -45,7 +46,7 @@ case_comparisons = do
             , [("Unplugged", 0)]
             , [("Ziltoid the Omniscient", 0)]
             , [("Orphaned Land", 0)]
-            , [("The Heart of the Matter", 0), ("Heart of the Matter", 3)]
+            , [("The Heart of the Matter", 0), ("Heart of the Matter", 0)]
             , [("Triosphere", 0), ("Try Sphere", 2)]
             , [("Leprous", 0)]
             , [("The Congregation", 0)]
@@ -59,7 +60,7 @@ case_comparisons = do
     forM_ expectation $ \(cases) ->
         forM cases $ \(text, distance) -> do
             let d = lookupDistance' text albumM
-            assertEqual "Distance was " distance (fst d)
+            assertEqual (concat ["Distance was ", T.unpack text]) distance (fst d)
 
 tests = $(testGroupGenerator)
 
